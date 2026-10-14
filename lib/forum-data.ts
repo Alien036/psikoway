@@ -13,7 +13,15 @@ import {
 } from "firebase/firestore";
 import { firestore } from "./firebase";
 import { ForumPost, ForumComment } from "../types/forum";
-import { checkAndEnforceRateLimit, getClientFingerprint } from "./anti-spam";
+import { 
+  checkAndEnforceRateLimit, 
+  getClientFingerprint,
+  sanitizeContent,
+  checkExternalLinkLimit,
+  checkProfanityAndHarassment,
+  checkCrisisAndSelfHarm,
+  recordSecurityAlert
+} from "./anti-spam";
 
 const SHADOW_POSTS_STORAGE_KEY = "psikoway_local_shadow_posts_v1";
 
@@ -262,64 +270,67 @@ function sanitizeForFirestore<T>(data: T): any {
 /**
  * Normalleştirici: Firebase verisindeki olası nesne formatındaki dizileri güvenli diziye çevirir
  */
-function normalizePost(raw: any): ForumPost {
-  const likes = Array.isArray(raw.likes)
+function normalizePost(raw: any, docId?: string): ForumPost {
+  const resolvedId = String(raw?.id || docId || "").trim();
+  const id = resolvedId || (docId ? String(docId) : `post-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`);
+
+  const likes = Array.isArray(raw?.likes)
     ? raw.likes
-    : raw.likes && typeof raw.likes === "object"
+    : raw?.likes && typeof raw.likes === "object"
     ? Object.values(raw.likes)
     : [];
 
-  const tags = Array.isArray(raw.tags)
+  const tags = Array.isArray(raw?.tags)
     ? raw.tags
-    : raw.tags && typeof raw.tags === "object"
+    : raw?.tags && typeof raw.tags === "object"
     ? Object.values(raw.tags)
     : [];
 
   let comments: ForumComment[] = [];
-  if (Array.isArray(raw.comments)) {
+  if (Array.isArray(raw?.comments)) {
     comments = raw.comments;
-  } else if (raw.comments && typeof raw.comments === "object") {
+  } else if (raw?.comments && typeof raw.comments === "object") {
     comments = Object.values(raw.comments);
   }
 
-  comments = comments.map((c: any) => ({
-    id: String(c.id || `comment-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`),
-    postId: String(c.postId || raw.id || ""),
-    authorId: String(c.authorId || ""),
-    authorName: String(c.authorName || (c.isAnonymous ? "Anonim Düşünür" : "Anonim")),
-    authorAvatar: c.authorAvatar || "",
-    authorProfession: c.authorProfession || "",
-    isAnonymous: Boolean(c.isAnonymous),
-    content: String(c.content || ""),
-    createdAt: String(c.createdAt || new Date().toISOString()),
-    likes: Array.isArray(c.likes)
+  comments = comments.map((c: any, cIdx: number) => ({
+    id: String(c?.id || `comment-${id}-${cIdx}-${Date.now()}`),
+    postId: String(c?.postId || id),
+    authorId: String(c?.authorId || ""),
+    authorName: String(c?.authorName || (c?.isAnonymous ? "Anonim Düşünür" : "Anonim")),
+    authorAvatar: c?.authorAvatar || "",
+    authorProfession: c?.authorProfession || "",
+    isAnonymous: Boolean(c?.isAnonymous),
+    content: String(c?.content || ""),
+    createdAt: String(c?.createdAt || new Date().toISOString()),
+    likes: Array.isArray(c?.likes)
       ? c.likes
-      : c.likes && typeof c.likes === "object"
+      : c?.likes && typeof c.likes === "object"
       ? Object.values(c.likes)
       : [],
-    isShadowbanned: Boolean(c.isShadowbanned),
-    shadowClientFingerprint: String(c.shadowClientFingerprint || ""),
+    isShadowbanned: Boolean(c?.isShadowbanned),
+    shadowClientFingerprint: String(c?.shadowClientFingerprint || ""),
   }));
 
   return {
-    id: String(raw.id || ""),
-    title: String(raw.title || ""),
-    content: String(raw.content || ""),
-    category: String(raw.category || "Psikoloji & Zihin"),
+    id,
+    title: String(raw?.title || ""),
+    content: String(raw?.content || ""),
+    category: String(raw?.category || "Psikoloji & Zihin"),
     tags,
-    authorId: String(raw.authorId || ""),
-    authorName: String(raw.authorName || (raw.isAnonymous ? "Anonim Düşünür" : "Anonim")),
-    authorAvatar: raw.authorAvatar || "",
-    authorProfession: raw.authorProfession || "",
-    authorBio: raw.authorBio || "",
-    isAnonymous: Boolean(raw.isAnonymous),
-    createdAt: String(raw.createdAt || new Date().toISOString()),
+    authorId: String(raw?.authorId || ""),
+    authorName: String(raw?.authorName || (raw?.isAnonymous ? "Anonim Düşünür" : "Anonim")),
+    authorAvatar: raw?.authorAvatar || "",
+    authorProfession: raw?.authorProfession || "",
+    authorBio: raw?.authorBio || "",
+    isAnonymous: Boolean(raw?.isAnonymous),
+    createdAt: String(raw?.createdAt || new Date().toISOString()),
     likes,
-    views: typeof raw.views === "number" ? raw.views : 0,
-    isPinned: Boolean(raw.isPinned),
+    views: typeof raw?.views === "number" ? raw.views : 0,
+    isPinned: Boolean(raw?.isPinned),
     comments,
-    isShadowbanned: Boolean(raw.isShadowbanned),
-    shadowClientFingerprint: String(raw.shadowClientFingerprint || ""),
+    isShadowbanned: Boolean(raw?.isShadowbanned),
+    shadowClientFingerprint: String(raw?.shadowClientFingerprint || ""),
   };
 }
 
@@ -458,7 +469,13 @@ export const subscribeToForumPosts = (
         if (!snapshot.empty) {
           const list: ForumPost[] = [];
           snapshot.forEach((d) => {
-            list.push(normalizePost(d.data()));
+            const data = d.data();
+            // Yalnızca başlığı veya içeriği olan geçerli gönderileri listele (bozuk/boş belgeleri ayıkla)
+            if (data && (data.title || data.content || d.id)) {
+              if (data.title || data.content) {
+                list.push(normalizePost(data, d.id));
+              }
+            }
           });
 
           // Sıralama: pinned olanlar önce, ardından en yeni
@@ -506,20 +523,60 @@ export const createForumPost = async (
   const currentPosts = getStoredPosts();
   const clientFp = getClientFingerprint();
 
-  // BOT & SPAM RATE LIMIT KONTROLÜ (Dakikada 2'den fazla yazanı direkt kısıtla)
+  // 1. AĞIR KÜFÜR VE HAKARET DENETİMİ
+  const fullText = `${newPostData.title} ${newPostData.content}`;
+  const profanityResult = checkProfanityAndHarassment(fullText);
+  if (profanityResult.hasViolation) {
+    throw new Error(profanityResult.reason || "Paylaşımınız topluluk kurallarımıza aykırı ifadeler içermektedir.");
+  }
+
+  // 2. DIŞ BAĞLANTI (LINK) SINIRLANDIRMASI (En fazla 2 link)
+  const linkResult = checkExternalLinkLimit(newPostData.content, 2);
+  if (!linkResult.isAllowed) {
+    throw new Error(linkResult.reason || "Topluluk güvenliği nedeniyle fazla sayıda dış bağlantı paylaşamazsınız.");
+  }
+
+  // 3. KRİZ VE KENDİNE ZARAR VERME FİLTRESİ (PSİKOLOJİ FORUMU GÜVENLİĞİ)
+  let isCrisis = false;
+  const crisisResult = checkCrisisAndSelfHarm(fullText);
+  if (crisisResult.isCrisisDetected) {
+    isCrisis = true;
+    // Moderasyona acil kriz alarmı kaydet
+    recordSecurityAlert({
+      id: `alert-crisis-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      userId: newPostData.authorId,
+      clientFingerprint: clientFp,
+      userName: newPostData.authorName || "PsikoWay Düşünürü",
+      reason: "ACİL KRİZ BİLDİRİMİ: Gönderide kendine zarar verme veya akut kriz belirtisi tespit edildi.",
+      actionType: "post",
+      contentSnippet: newPostData.content.substring(0, 300),
+      postTitle: newPostData.title,
+      timestamp: new Date().toISOString(),
+      status: "crisis",
+      attemptsInWindow: 1,
+    }).catch(() => {});
+  }
+
+  // 4. XSS & HTML SANITIZATION (GÜVENLİ METİN TEMİZLİĞİ)
+  const cleanTitle = sanitizeContent(newPostData.title);
+  const cleanContent = sanitizeContent(newPostData.content);
+
+  // 5. BOT & SPAM RATE LIMIT KONTROLÜ (Dakikada 2'den fazla yazanı direkt kısıtla)
   const rateLimitResult = await checkAndEnforceRateLimit({
     userId: newPostData.authorId,
     userName: newPostData.authorName || "PsikoWay Düşünürü",
     actionType: "post",
-    contentSnippet: newPostData.content,
-    postTitle: newPostData.title,
+    contentSnippet: cleanContent,
+    postTitle: cleanTitle,
   });
 
-  const isShadow = rateLimitResult.isShadowbanned;
+  const isShadow = rateLimitResult.isShadowbanned || isCrisis;
 
   const created: ForumPost = {
     ...newPostData,
     id: `post-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    title: cleanTitle,
+    content: cleanContent,
     authorName: newPostData.authorName || "PsikoWay Düşünürü",
     authorAvatar: newPostData.authorAvatar || "",
     authorProfession: newPostData.authorProfession || "",
@@ -625,10 +682,14 @@ export const recordPostView = async (postId: string): Promise<void> => {
     const postRef = doc(firestore, FORUM_COLLECTION, postId);
     await updateDoc(postRef, { views: increment(1) });
   } catch {
-    try {
-      const postRef = doc(firestore, FORUM_COLLECTION, postId);
-      await setDoc(postRef, { views: newViews }, { merge: true });
-    } catch {}
+    // Eğer belge henüz Firestore'da yoksa ve yerel listede tam gönderi verisi mevcutsa tohum olarak kaydet
+    const postToSeed = currentPosts.find((p) => p.id === postId);
+    if (postToSeed && (postToSeed.title || postToSeed.content)) {
+      try {
+        const postRef = doc(firestore, FORUM_COLLECTION, postId);
+        await setDoc(postRef, sanitizeForFirestore({ ...postToSeed, views: newViews }));
+      } catch {}
+    }
   }
 };
 
@@ -657,16 +718,51 @@ export const addPostComment = async (
   const currentPosts = getStoredPosts();
   const clientFp = getClientFingerprint();
 
-  // BOT & SPAM RATE LIMIT KONTROLÜ (Dakikada 2'den fazla yazanı direkt kısıtla)
+  // 1. AĞIR KÜFÜR VE HAKARET KONTROLÜ
+  const profanityResult = checkProfanityAndHarassment(commentData.content);
+  if (profanityResult.hasViolation) {
+    throw new Error(profanityResult.reason || "Yorumunuz topluluk kurallarımıza aykırı ifadeler içermektedir.");
+  }
+
+  // 2. DIŞ BAĞLANTI (LINK) SINIRLANDIRMASI (Yorumlarda en fazla 1 link)
+  const linkResult = checkExternalLinkLimit(commentData.content, 1);
+  if (!linkResult.isAllowed) {
+    throw new Error(linkResult.reason || "Yorumlarda çok fazla dış bağlantı paylaşamazsınız.");
+  }
+
+  // 3. KRİZ VE KENDİNE ZARAR VERME TESPİTİ
+  let isCrisis = false;
+  const crisisResult = checkCrisisAndSelfHarm(commentData.content);
+  if (crisisResult.isCrisisDetected) {
+    isCrisis = true;
+    recordSecurityAlert({
+      id: `alert-crisis-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      userId: commentData.authorId,
+      clientFingerprint: clientFp,
+      userName: commentData.authorName || "PsikoWay Düşünürü",
+      reason: "ACİL KRİZ BİLDİRİMİ: Yorumda kendine zarar verme veya akut kriz belirtisi tespit edildi.",
+      actionType: "comment",
+      contentSnippet: commentData.content.substring(0, 300),
+      postTitle: `Post ID: ${postId}`,
+      timestamp: new Date().toISOString(),
+      status: "crisis",
+      attemptsInWindow: 1,
+    }).catch(() => {});
+  }
+
+  // 4. XSS & HTML SANITIZATION
+  const cleanCommentText = sanitizeContent(commentData.content);
+
+  // 5. BOT & SPAM RATE LIMIT KONTROLÜ (Dakikada 2'den fazla yazanı direkt kısıtla)
   const rateLimitResult = await checkAndEnforceRateLimit({
     userId: commentData.authorId,
     userName: commentData.authorName || "PsikoWay Düşünürü",
     actionType: "comment",
-    contentSnippet: commentData.content,
+    contentSnippet: cleanCommentText,
     postTitle: `Post ID: ${postId}`,
   });
 
-  const isShadow = rateLimitResult.isShadowbanned;
+  const isShadow = rateLimitResult.isShadowbanned || isCrisis;
 
   const newComment: ForumComment = {
     id: `comment-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -676,7 +772,7 @@ export const addPostComment = async (
     authorAvatar: commentData.authorAvatar || "",
     authorProfession: commentData.authorProfession || "",
     isAnonymous: false,
-    content: commentData.content.trim(),
+    content: cleanCommentText,
     createdAt: new Date().toISOString(),
     likes: [],
     isShadowbanned: isShadow,

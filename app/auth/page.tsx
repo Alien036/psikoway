@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import BackgroundVideo from "../../components/BackgroundVideo";
 import { useAuth } from "../../context/AuthContext";
+import { triggerHoneypotTrap, isDisposableEmail } from "../../lib/anti-spam";
 
 function AuthForm() {
   const router = useRouter();
@@ -36,6 +37,7 @@ function AuthForm() {
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [profession, setProfession] = useState("");
+  const [honeypot, setHoneypot] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
   // Durumlar
@@ -70,6 +72,19 @@ function AuthForm() {
   // E-posta ile Kayıt Ol
   const handleEmailRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Honeypot Bal Küpü Tuzağı (Bot Kontrolü)
+    if (honeypot) {
+      try {
+        await triggerHoneypotTrap({ actionType: "register", honeypotValue: honeypot });
+      } catch {}
+      setError("Güvenlik doğrulaması başarısız oldu.");
+      return;
+    }
+    // Geçici E-posta Kontrolü
+    if (isDisposableEmail(email)) {
+      setError("Geçici ve tek kullanımlık e-posta adresleri (temp-mail) ile kayıt olunamaz. Lütfen kalıcı bir e-posta adresi kullanın.");
+      return;
+    }
     if (!displayName.trim()) {
       setError("Lütfen adınızı ve soyadınızı belirtin.");
       return;
@@ -220,6 +235,20 @@ function AuthForm() {
       {/* 2. KAYIT OL FORMU */}
       {authMode === "register" && (
         <form onSubmit={handleEmailRegister} className="auth-form-body">
+          {/* Honeypot Bal Küpü Koruması (Botlar için gizli sahte alan) */}
+          <div className="opacity-0 absolute -z-10 pointer-events-none h-0 w-0 overflow-hidden" tabIndex={-1} aria-hidden="true">
+            <label htmlFor="reg-website-url">Website</label>
+            <input
+              id="reg-website-url"
+              type="text"
+              name="website_url"
+              tabIndex={-1}
+              autoComplete="off"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+            />
+          </div>
+
           <div className="form-group">
             <label htmlFor="reg-name">Ad Soyad / Takma Ad *</label>
             <div className="input-with-icon">

@@ -883,16 +883,16 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredPosts.map((post) => (
-                        <tr key={post.id}>
+                      {filteredPosts.map((post, pIdx) => (
+                        <tr key={post.id || `post-${pIdx}`}>
                           <td style={{ maxWidth: "340px" }}>
                             <div className="table-post-title">{post.title}</div>
                             <div className="table-post-excerpt">
                               {post.content.slice(0, 100)}...
                             </div>
                             <div className="table-tags">
-                              {post.tags.map((t) => (
-                                <span key={t} className="table-tag-pill">
+                              {post.tags.map((t, tIdx) => (
+                                <span key={`${post.id || pIdx}-tag-${t}-${tIdx}`} className="table-tag-pill">
                                   #{t}
                                 </span>
                               ))}
@@ -986,8 +986,8 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredComments.map((comm) => (
-                        <tr key={comm.commentId}>
+                      {filteredComments.map((comm, cIdx) => (
+                        <tr key={comm.commentId || `comm-${cIdx}`}>
                           <td style={{ maxWidth: "360px" }}>
                             <div className="table-comment-text">{comm.content}</div>
                           </td>
@@ -1111,8 +1111,8 @@ export default function AdminPage() {
                   </div>
 
                   <div className="banned-users-tags">
-                    {bannedUsers.map((b) => (
-                      <div key={b.userId} className="banned-user-pill">
+                    {bannedUsers.map((b, bIdx) => (
+                      <div key={b.userId || `ban-${bIdx}`} className="banned-user-pill">
                         <strong>{b.userName}</strong>
                         <span>({b.reason})</span>
                         <button
@@ -1143,8 +1143,8 @@ export default function AdminPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredUsers.map((userItem) => (
-                      <tr key={userItem.userId}>
+                    {filteredUsers.map((userItem, uIdx) => (
+                      <tr key={userItem.userId || `user-${uIdx}`}>
                         <td>
                           <div className="table-user-name">
                             <User size={14} style={{ display: "inline", marginRight: "6px" }} />
@@ -1220,8 +1220,8 @@ export default function AdminPage() {
                     <span>Gönderilmiş Aktif Uyarılar ({warnings.length})</span>
                   </h4>
                   <div className="warnings-stream">
-                    {warnings.map((w) => (
-                      <div key={w.id} className="warning-item-box">
+                    {warnings.map((w, wIdx) => (
+                      <div key={w.id || `warn-${wIdx}`} className="warning-item-box">
                         <div className="warn-left">
                           <strong>{w.userName}</strong>
                           <span className="warn-msg">&quot;{w.message}&quot;</span>
@@ -1280,8 +1280,8 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredMessages.map((msg) => (
-                        <tr key={msg.id}>
+                      {filteredMessages.map((msg, mIdx) => (
+                        <tr key={msg.id || `msg-${mIdx}`}>
                           <td>
                             <strong style={{ color: "#fff", display: "block" }}>{msg.fullName}</strong>
                             <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)" }}>
@@ -1523,8 +1523,8 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredAlerts.map((alert) => (
-                        <tr key={alert.id}>
+                      {filteredAlerts.map((alert, aIdx) => (
+                        <tr key={alert.id || `alert-${aIdx}`}>
                           <td className="table-date" style={{ whiteSpace: "nowrap" }}>
                             {new Date(alert.timestamp).toLocaleDateString("tr-TR", {
                               day: "numeric",

@@ -32,11 +32,12 @@ export interface SecurityAlert {
   clientFingerprint: string;
   userName: string;
   reason: string;
-  actionType: "post" | "comment";
+  actionType: "post" | "comment" | "register" | "honeypot";
   contentSnippet: string;
   postTitle?: string;
   timestamp: string;
-  status: "shadowbanned" | "resolved" | "banned";
+  status: "shadowbanned" | "resolved" | "banned" | "crisis";
   attemptsInWindow: number;
 }
+
 

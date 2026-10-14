@@ -1,0 +1,148 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ========================================================
+    // YARDIMCI GÜVENLİK VE YETKİLENDİRME FONKSİYONLARI
+    // ========================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData().get('role', '') == 'admin') ||
+        request.auth.token.get('admin', false) == true
+      );
+    }
+
+    // Ban kontrolü: users koleksiyonundaki isBanned alanı true olmamalıdır
+    function isNotBanned() {
+      return isSignedIn() && (
+        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+        getUserData().get('isBanned', false) != true
+      );
+    }
+
+    // ========================================================
+    // 1. KULLANICI PROFİLLERİ (users/{userId})
+    // ========================================================
+    match /users/{userId} {
+      // Topluluk profillerini herkes okuyabilir
+      allow read: if true;
+
+      // Kullanıcı oluşturma: Kendi UID'si ile ve yetki yükseltme alanları olmadan
+      allow create: if isOwner(userId) && (
+        !request.resource.data.keys().hasAny(['role', 'isBanned', 'isShadowBanned', 'isShadowbanned', 'warnings']) ||
+        request.resource.data.get('role', '') != 'admin'
+      );
+
+      // KULLANICI GÜNCELLEME:
+      // Kullanıcıların kendi users/{userId} dokümanlarını güncellerken 'role', 'isBanned',
+      // 'isShadowBanned', 'isShadowbanned' ve 'warnings' alanlarını değiştirmesi KESİN OLARAK ENGELLENİR.
+      // Yalnızca Admin tüm alanları düzenleyebilir.
+      allow update: if isAdmin() || (
+        isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'role',
+          'isBanned',
+          'isShadowBanned',
+          'isShadowbanned',
+          'warnings'
+        ])
+      );
+
+      // Silme işlemi sadece Admin yetkisindedir
+      allow delete: if isAdmin();
+    }
+
+    // ========================================================
+    // 2. FORUM GÖNDERİLERİ (forum_posts/{postId})
+    // ========================================================
+    match /forum_posts/{postId} {
+      // OKUMA KURALI:
+      // - Normal (isShadowBanned / isShadowbanned != true) olan gönderiler herkese açıktır.
+      // - isShadowBanned == true olan gönderiler YALNIZCA gönderi sahibi (authorId == auth.uid)
+      //   ve Admin (role == 'admin') tarafından okunabilir!
+      allow read: if (
+        resource.data.get('isShadowBanned', false) != true &&
+        resource.data.get('isShadowbanned', false) != true
+      ) || (
+        isSignedIn() && (
+          resource.data.get('authorId', '') == request.auth.uid ||
+          isAdmin()
+        )
+      );
+
+      // OLUŞTURMA KURALI:
+      // Sadece giriş yapmış ve banlanmamış (isBanned != true) kullanıcılar gönderi açabilir.
+      allow create: if isNotBanned() && (
+        request.resource.data.get('authorId', '') == request.auth.uid ||
+        isAdmin()
+      );
+
+      // GÜNCELLEME KURALI:
+      // Adminler tüm alanları; normal ve banlanmamış kullanıcılar sadece kendi gönderilerini
+      // veya etkileşim alanlarını (likes, views, comments) güncelleyebilir.
+      allow update: if isAdmin() || (
+        isNotBanned() && (
+          resource.data.get('authorId', '') == request.auth.uid ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['views', 'likes', 'comments'])
+        )
+      );
+
+      // SİLME KURALI: Gönderi sahibi veya Admin silebilir
+      allow delete: if isAdmin() || (
+        isSignedIn() && resource.data.get('authorId', '') == request.auth.uid
+      );
+    }
+
+    // ========================================================
+    // 3. GÜVENLİK VE BOT BİLDİRİMLERİ (moderation_alerts/{alertId})
+    // ========================================================
+    match /moderation_alerts/{alertId} {
+      allow read, update, delete: if isAdmin();
+      // İstemci tarafı güvenlik/bot ihlal alarmlarını yazabilir
+      allow create: if true;
+    }
+
+    // ========================================================
+    // 4. İLETİŞİM & RANDEVU FORMLARI (contact_messages/{messageId})
+    // ========================================================
+    match /contact_messages/{messageId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ========================================================
+    // 5. YASAKLI KULLANICILAR VE UYARILAR
+    // ========================================================
+    match /banned_users/{userId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /user_warnings/{warningId} {
+      allow read: if isSignedIn() && (
+        resource.data.get('userId', '') == request.auth.uid ||
+        isAdmin()
+      );
+      allow write: if isAdmin();
+    }
+
+    // ========================================================
+    // 6. ADMİN GÜVENLİK YAPILANDIRMASI (adminConfig/{docId})
+    // ========================================================
+    match /adminConfig/{docId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

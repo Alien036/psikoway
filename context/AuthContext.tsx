@@ -14,6 +14,7 @@ import {
 import { auth, googleProvider } from "../lib/firebase";
 import { UserProfile } from "../types/user";
 import { getUserProfile, saveUserProfile, migrateAllUsersFromRTDBToFirestore } from "../lib/profile-data";
+import { isDisposableEmail } from "../lib/anti-spam";
 
 interface AuthContextType {
   user: User | null;
@@ -132,8 +133,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     displayName: string, 
     profession?: string
   ): Promise<User | null> => {
+    const trimmedEmail = email.trim();
+    if (isDisposableEmail(trimmedEmail)) {
+      throw new Error("Geçici ve tek kullanımlık e-posta adresleri (temp-mail) ile kayıt olunamaz. Lütfen kalıcı ve geçerli bir e-posta adresi kullanın.");
+    }
+
     try {
-      const res = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+      const res = await createUserWithEmailAndPassword(auth, trimmedEmail, pass);
       const cleanName = displayName.trim() || "PsikoWay Üyesi";
       
       // Firebase Auth Profilini Güncelle

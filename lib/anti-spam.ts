@@ -329,3 +329,215 @@ export const subscribeToSecurityAlerts = (
     return () => {};
   }
 };
+
+// ========================================================
+// 3. HONEYPOT (BAL KÜPÜ) BOT TUZAĞI KORUMASI
+// ========================================================
+/**
+ * Honeypot Bal Küpü Tuzağı:
+ * Botlar formlardaki gizli alanları otomatik doldurur.
+ * Doldurulduğu an kullanıcı hem tarayıcı hem Firestore düzeyinde kalıcı olarak
+ * gölge kısıtlanır (shadowbanned) ve işlem engellenir.
+ */
+export const triggerHoneypotTrap = async (params: {
+  userId?: string;
+  userName?: string;
+  actionType: "post" | "comment" | "register" | "honeypot";
+  honeypotValue: string;
+}): Promise<never> => {
+  setShadowbannedLocally(true);
+  const now = Date.now();
+  const fp = getClientFingerprint();
+
+  await recordSecurityAlert({
+    id: `alert-honeypot-${now}-${Math.random().toString(36).substring(2, 6)}`,
+    userId: params.userId || "bot-honeypot-user",
+    clientFingerprint: fp,
+    userName: params.userName || "Şüpheli Bot / Form Tarayıcı",
+    reason: `Honeypot (Bal Küpü) tuzağı tetiklendi! Gizli sahte 'website_url' alanına otomatik bot verisi yazıldı: "${params.honeypotValue.slice(0, 50)}"`,
+    actionType: params.actionType === "register" ? "register" : params.actionType,
+    contentSnippet: `[Bal Küpü Tuzağı] Otomatik form tarayıcı bot engellendi. Alan: website_url`,
+    timestamp: new Date().toISOString(),
+    status: "shadowbanned",
+    attemptsInWindow: 99,
+  });
+
+  throw new Error("Güvenlik doğrulaması başarısız oldu (Honeypot Bot Koruması).");
+};
+
+// ========================================================
+// 4. XSS & TEHLİKELİ HTML/SCRIPT ETİKETLERİNİ TEMİZLEME
+// ========================================================
+/**
+ * Gönderi ve yorum içeriklerindeki tehlikeli HTML/script etiketlerini temizleyen sanitization fonksiyonu
+ */
+export const sanitizeContent = (input: string): string => {
+  if (!input) return "";
+
+  let cleaned = input;
+
+  // 1. Script, iframe, object, embed, style etiketlerini gövdesiyle birlikte kaldır
+  cleaned = cleaned.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
+  cleaned = cleaned.replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, "");
+  cleaned = cleaned.replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, "");
+  cleaned = cleaned.replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, "");
+  cleaned = cleaned.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "");
+
+  // 2. Tehlikeli protokol ve event handler'ları etkisizleştir
+  cleaned = cleaned.replace(/javascript:/gi, "blocked-javascript:");
+  cleaned = cleaned.replace(/data:\s*text\/html/gi, "blocked-data-html:");
+  cleaned = cleaned.replace(/vbscript:/gi, "blocked-vbscript:");
+  cleaned = cleaned.replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, " data-blocked-attr=1");
+
+  // 3. Raw HTML taglerini güvenli metne dönüştür
+  cleaned = cleaned.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  return cleaned.trim();
+};
+
+// ========================================================
+// 5. GEÇİCİ E-POSTA (TEMP-MAIL) KORUMASI
+// ========================================================
+export const DISPOSABLE_EMAIL_DOMAINS = new Set([
+  "tempmail.com", "temp-mail.org", "temp-mail.io", "tempmailo.com",
+  "yopmail.com", "yopmail.fr", "yopmail.net",
+  "10minutemail.com", "10minutemail.net", "10minute.email",
+  "guerrillamail.com", "guerrillamail.net", "guerrillamail.org", "sharklasers.com", "grr.la",
+  "mailinator.com", "mailinater.com",
+  "throwawaymail.com", "fakemailgenerator.com", "dispostable.com",
+  "trashmail.com", "trashmail.net", "mohmal.com", "dropmail.me",
+  "getairmail.com", "emailondeck.com", "crazymailing.com", "burnermail.io",
+  "generator.email", "nada.ltd", "inboxkitten.com", "mytemp.email"
+]);
+
+/**
+ * Bilinen geçici e-posta servislerini kontrol eder.
+ */
+export const isDisposableEmail = (email: string): boolean => {
+  if (!email || !email.includes("@")) return false;
+  const parts = email.split("@");
+  if (parts.length < 2) return false;
+  const domain = parts[1].trim().toLowerCase();
+  if (!domain) return false;
+
+  if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) return true;
+  for (const blocked of DISPOSABLE_EMAIL_DOMAINS) {
+    if (domain === blocked || domain.endsWith(`.${blocked}`) || domain.includes(blocked)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+// ========================================================
+// 6. DIŞ BAĞLANTI (LINK) SPAM SINIRLANDIRMASI
+// ========================================================
+/**
+ * Kullanıcıların paylaşımlarında art arda dış bağlantı (http/https) paylaşmasını sınırlar.
+ */
+export const checkExternalLinkLimit = (
+  content: string,
+  maxLinks: number = 2
+): { isAllowed: boolean; linkCount: number; reason?: string } => {
+  if (!content) return { isAllowed: true, linkCount: 0 };
+  const linkMatches = content.match(/https?:\/\/[^\s]+/gi) || [];
+  const linkCount = linkMatches.length;
+
+  if (linkCount > maxLinks) {
+    return {
+      isAllowed: false,
+      linkCount,
+      reason: `Topluluk ve spam güvenliği nedeniyle bir paylaşımda en fazla ${maxLinks} adet web bağlantısına izin verilir (Tespit edilen: ${linkCount}).`,
+    };
+  }
+
+  return { isAllowed: true, linkCount };
+};
+
+// ========================================================
+// 7. KRİZ VE AĞIR İHLAL FİLTRESİ (PSİKOLOJİ FORUMU GÜVENLİĞİ)
+// ========================================================
+// Ağır hakaret ve saygısızlık kalıpları
+const SEVERE_PROFANITY_PATTERNS = [
+  /\b(o[çc]|o\.ç\.|orospu|orospuçocuğu|piç|sik[a-z]*|sikerim|sikeyim|amk|aq|amına|amını|yarrak|yarak|götlek|ibne|kahpe)\b/i,
+  /\b(pezevenk|götveren|amcık)\b/i,
+];
+
+/**
+ * Ağır hakaret ve küfür kontrolü
+ */
+export const checkProfanityAndHarassment = (
+  text: string
+): { hasViolation: boolean; reason?: string } => {
+  if (!text) return { hasViolation: false };
+
+  for (const pattern of SEVERE_PROFANITY_PATTERNS) {
+    if (pattern.test(text)) {
+      return {
+        hasViolation: true,
+        reason: "Paylaşımınız topluluk kurallarımıza aykırı ve kırıcı ifadeler içermektedir. Lütfen yapıcı ve saygılı bir dil kullanın.",
+      };
+    }
+  }
+
+  return { hasViolation: false };
+};
+
+export interface CrisisHelpInfo {
+  title: string;
+  message: string;
+  emergencyNumbers: Array<{ label: string; number: string; description: string }>;
+}
+
+// Akut kriz, kendine zarar verme ve intihar eğilimi anahtar kelimeleri
+const CRISIS_PATTERNS = [
+  /\b(intihar|intiharı|intihara|intihar\s+et)\b/i,
+  /\b(kendime\s+zarar|canıma\s+kıy|canıma\s+kıyma|canıma\s+kıyacağım|canıma\s+kıymak)\b/i,
+  /\b(ölmek\s+istiyorum|yaşamak\s+istemiyorum|yaşamıma\s+son|hayatıma\s+son)\b/i,
+  /\b(kendimi\s+öldür|kendimi\s+asmak|kendimi\s+as|kendimi\s+vur|bileklerimi\s+kes)\b/i,
+];
+
+/**
+ * Psikoloji forumu kriz ve akut kendine zarar verme algılayıcısı:
+ * Kendine zarar verme veya akut kriz belirtildiğinde tespit eder,
+ * moderasyona kriz bildirimi gönderir ve kullanıcıya 112 gibi acil destek hatlarını sunar.
+ */
+export const checkCrisisAndSelfHarm = (
+  text: string
+): { isCrisisDetected: boolean; crisisHelp?: CrisisHelpInfo; reason?: string } => {
+  if (!text) return { isCrisisDetected: false };
+
+  for (const pattern of CRISIS_PATTERNS) {
+    if (pattern.test(text)) {
+      return {
+        isCrisisDetected: true,
+        reason: "İçerikte kendine zarar verme veya akut psikolojik kriz ifadeleri tespit edildi.",
+        crisisHelp: {
+          title: "Yalnız Değilsiniz, Size Destek Olmak İstiyoruz",
+          message:
+            "Şu an çok zor veya bunaltıcı duygular yaşıyor olabilirsiniz. Unutmayın ki bu acıyı tek başınıza taşımak zorunda değilsiniz. Uzmanlar ve acil destek hatları size ücretsiz ve 7/24 destek sağlamak için hazırdır.",
+          emergencyNumbers: [
+            {
+              label: "112 Acil Çağrı Merkezi",
+              number: "112",
+              description: "Hayati tehlike ve acil sağlık durumlarında 7/24 ücretsiz arayabilirsiniz.",
+            },
+            {
+              label: "Sağlık Bakanlığı MHRS & Psikiyatri Randevu",
+              number: "182",
+              description: "Ruh sağlığı uzmanı ve psikiyatrist randevuları için arayabilirsiniz.",
+            },
+            {
+              label: "Aile ve Sosyal Hizmetler Destek Hattı",
+              number: "183",
+              description: "Kadın, çocuk ve aileler için 7/24 psikososyal destek hattı.",
+            },
+          ],
+        },
+      };
+    }
+  }
+
+  return { isCrisisDetected: false };
+};
+

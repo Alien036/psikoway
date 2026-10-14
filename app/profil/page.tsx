@@ -460,9 +460,9 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
                       </div>
                     ) : (
                       <div className="user-posts-list">
-                        {targetPosts.map((post) => (
+                        {targetPosts.map((post, idx) => (
                           <Link
-                            key={post.id}
+                            key={post.id || `target-post-${idx}`}
                             href={`/forum?post=${post.id}`}
                             className="user-post-item-card"
                           >
@@ -990,9 +990,9 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
                           </div>
                         ) : (
                           <div className="user-posts-list">
-                            {myPosts.map((post) => (
+                            {myPosts.map((post, idx) => (
                               <div
-                                key={post.id}
+                                key={post.id || `my-post-${idx}`}
                                 className="user-post-item-card"
                               >
                                 <div className="user-post-item-header">

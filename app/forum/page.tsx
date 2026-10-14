@@ -31,6 +31,7 @@ import {
 } from "../../lib/admin-data";
 import { UserWarning } from "../../types/admin";
 import { subscribeToRealUserCount, formatCommunityStat } from "../../lib/community-stats";
+import { triggerHoneypotTrap, checkCrisisAndSelfHarm, CrisisHelpInfo } from "../../lib/anti-spam";
 import {
   MessageSquareQuote,
   Plus,
@@ -140,6 +141,9 @@ export default function ForumPage() {
   const [newContent, setNewContent] = useState("");
   const [newIsAnonymous, setNewIsAnonymous] = useState(false);
   const [formError, setFormError] = useState("");
+  const [postHoneypot, setPostHoneypot] = useState("");
+  const [commentHoneypots, setCommentHoneypots] = useState<Record<string, string>>({});
+  const [crisisModalInfo, setCrisisModalInfo] = useState<CrisisHelpInfo | null>(null);
   const [userWarningsList, setUserWarningsList] = useState<UserWarning[]>([]);
   const [realUsersCount, setRealUsersCount] = useState<number>(1);
   const isCurrentUserBanned = user ? isUserBannedSync(user.uid) : false;
@@ -298,6 +302,26 @@ export default function ForumPage() {
     const commentAuthorAvatar = userProfile?.photoURL || user.photoURL || "";
     const commentAuthorProf = userProfile?.profession || "";
 
+    // Honeypot Bal Küpü Tuzağı Kontrolü
+    if (commentHoneypots[postId]) {
+      try {
+        await triggerHoneypotTrap({
+          userId: user.uid,
+          userName: commentAuthorName,
+          actionType: "comment",
+          honeypotValue: commentHoneypots[postId],
+        });
+      } catch {}
+      showToast("Güvenlik doğrulaması başarısız oldu.");
+      return;
+    }
+
+    // Kriz & Kendine Zarar Verme Durumu Kontrolü
+    const crisisCheck = checkCrisisAndSelfHarm(content);
+    if (crisisCheck.isCrisisDetected && crisisCheck.crisisHelp) {
+      setCrisisModalInfo(crisisCheck.crisisHelp);
+    }
+
     try {
       const updated = await addPostComment(postId, {
         authorId: user.uid,
@@ -396,6 +420,26 @@ export default function ForumPage() {
     const postAuthorName = userProfile?.displayName || user.displayName || getUserDisplayName();
     const postAuthorAvatar = userProfile?.photoURL || user.photoURL || "";
     const postAuthorProf = userProfile?.profession || "";
+
+    // Honeypot Bal Küpü Tuzağı Kontrolü
+    if (postHoneypot) {
+      try {
+        await triggerHoneypotTrap({
+          userId: user.uid,
+          userName: postAuthorName,
+          actionType: "post",
+          honeypotValue: postHoneypot,
+        });
+      } catch {}
+      setFormError("Güvenlik doğrulaması başarısız oldu.");
+      return;
+    }
+
+    // Kriz & Kendine Zarar Verme Durumu Kontrolü
+    const crisisCheck = checkCrisisAndSelfHarm(`${newTitle} ${newContent}`);
+    if (crisisCheck.isCrisisDetected && crisisCheck.crisisHelp) {
+      setCrisisModalInfo(crisisCheck.crisisHelp);
+    }
 
     try {
       const updated = await createForumPost({
@@ -712,7 +756,7 @@ export default function ForumPage() {
 
                   return (
                     <article
-                      key={post.id}
+                      key={post.id || `forum-post-${idx}`}
                       id={post.id}
                       className={`forum-post-card animate-fade-up ${post.isPinned ? "is-pinned" : ""}`}
                       style={{ animationDelay: `${idx * 0.05}s` }}
@@ -911,6 +955,22 @@ export default function ForumPage() {
                                       {(userProfile?.displayName || getUserDisplayName()).charAt(0).toUpperCase()}
                                     </div>
                                   )}
+                                  {/* Honeypot Bal Küpü Koruması (Botlar için gizli sahte alan) */}
+                                  <div className="opacity-0 absolute -z-10 pointer-events-none h-0 w-0 overflow-hidden" tabIndex={-1} aria-hidden="true">
+                                    <input
+                                      type="text"
+                                      name="website_url"
+                                      tabIndex={-1}
+                                      autoComplete="off"
+                                      value={commentHoneypots[post.id] || ""}
+                                      onChange={(e) =>
+                                        setCommentHoneypots((prev) => ({
+                                          ...prev,
+                                          [post.id]: e.target.value,
+                                        }))
+                                      }
+                                    />
+                                  </div>
                                   <textarea
                                     rows={2}
                                     placeholder="Bu fikir hakkında ne düşünüyorsunuz? Düşüncenizi paylaşın..."
@@ -1177,6 +1237,20 @@ export default function ForumPage() {
             </div>
 
             <form onSubmit={handleCreatePostSubmit} className="composer-form">
+              {/* Honeypot Bal Küpü Koruması (Botlar için gizli sahte alan) */}
+              <div className="opacity-0 absolute -z-10 pointer-events-none h-0 w-0 overflow-hidden" tabIndex={-1} aria-hidden="true">
+                <label htmlFor="post-website-url">Website</label>
+                <input
+                  id="post-website-url"
+                  type="text"
+                  name="website_url"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  value={postHoneypot}
+                  onChange={(e) => setPostHoneypot(e.target.value)}
+                />
+              </div>
+
               {formError && <div className="form-error-banner">{formError}</div>}
 
               {isAnonymousUser && (
@@ -1393,6 +1467,94 @@ export default function ForumPage() {
                 </Link>
                 .
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL 4: KRİZ VE ACİL PSİKOSOSYAL DESTEK BİLGİLENDİRMESİ --- */}
+      {crisisModalInfo && (
+        <div className="modal-overlay" style={{ zIndex: 99999 }} onClick={() => setCrisisModalInfo(null)}>
+          <div
+            className="modal-content-box animate-scale"
+            style={{ maxWidth: "540px", background: "#131b26", border: "1px solid rgba(239, 68, 68, 0.4)", boxShadow: "0 20px 50px rgba(0,0,0,0.8)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header" style={{ borderBottom: "1px solid rgba(239,68,68,0.2)", paddingBottom: "14px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div style={{ width: "42px", height: "42px", borderRadius: "10px", background: "rgba(239, 68, 68, 0.15)", display: "flex", alignItems: "center", justifyContent: "center", color: "#f87171" }}>
+                  <AlertTriangle size={24} />
+                </div>
+                <div>
+                  <h3 style={{ color: "#ffffff", fontSize: "18px", margin: 0 }}>{crisisModalInfo.title}</h3>
+                  <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.6)" }}>PsikoWay Acil Destek & Yaşam Güvenliği</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCrisisModalInfo(null)}
+                className="modal-close-btn"
+                aria-label="Kapat"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ padding: "20px 0" }}>
+              <p style={{ color: "rgba(255,255,255,0.88)", fontSize: "14.5px", lineHeight: "1.6", marginBottom: "20px" }}>
+                {crisisModalInfo.message}
+              </p>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {crisisModalInfo.emergencyNumbers.map((item) => (
+                  <div
+                    key={item.number}
+                    style={{
+                      background: "rgba(255, 255, 255, 0.04)",
+                      border: "1px solid rgba(255, 255, 255, 0.1)",
+                      borderRadius: "10px",
+                      padding: "14px 16px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                    }}
+                  >
+                    <div>
+                      <strong style={{ color: "#ffffff", display: "block", fontSize: "15px" }}>{item.label}</strong>
+                      <span style={{ fontSize: "12.5px", color: "rgba(255,255,255,0.6)" }}>{item.description}</span>
+                    </div>
+                    <a
+                      href={`tel:${item.number}`}
+                      style={{
+                        background: "#e0b878",
+                        color: "#0f172a",
+                        fontWeight: 700,
+                        padding: "8px 16px",
+                        borderRadius: "8px",
+                        textDecoration: "none",
+                        fontSize: "14px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Hemen Ara ({item.number})
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: "12px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+              <button
+                type="button"
+                onClick={() => setCrisisModalInfo(null)}
+                className="btn-white-outline btn-sm"
+              >
+                Anladım, Teşekkürler
+              </button>
             </div>
           </div>
         </div>
