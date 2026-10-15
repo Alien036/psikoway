@@ -54,6 +54,7 @@ import {
   getSecurityAlerts, 
   subscribeToSecurityAlerts, 
   unshadowbanUser, 
+  unshadowbanPost,
   deleteSecurityAlert 
 } from "../../lib/anti-spam";
 import { ForumPost } from "../../types/forum";
@@ -161,7 +162,22 @@ export default function AdminPage() {
     setSecurityAlerts((prev) =>
       prev.map((a) => (a.id === alertId ? { ...a, status: "resolved" as const } : a))
     );
-    showToast("Kullanıcının gölge erişim sınırı başarıyla kaldırıldı.");
+    setPosts((prev) =>
+      prev.map((p) => (p.authorId === targetId ? { ...p, isShadowbanned: false } : p))
+    );
+    showToast("Kullanıcının ve gönderilerinin gölge kısıtlaması kaldırıldı.");
+  };
+
+  const handleUnshadowbanSinglePost = async (postId: string, title: string) => {
+    try {
+      await unshadowbanPost(postId);
+      setPosts((prev) =>
+        prev.map((p) => (p.id === postId ? { ...p, isShadowbanned: false } : p))
+      );
+      showToast(`"${title.slice(0, 20)}..." gönderisi yayına alındı ve herkese görünür yapıldı.`);
+    } catch {
+      showToast("İşlem sırasında hata oluştu.");
+    }
   };
 
   const handleDeleteSecurityAlert = async (alertId: string) => {
@@ -928,6 +944,18 @@ export default function AdminPage() {
                           </td>
                           <td>
                             <div className="table-actions-cell">
+                              {post.isShadowbanned && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUnshadowbanSinglePost(post.id, post.title)}
+                                  className="btn-action-warn"
+                                  style={{ color: "#4ade80", borderColor: "rgba(74, 222, 128, 0.4)", background: "rgba(74, 222, 128, 0.12)" }}
+                                  title="Gölge Kısıtlamasını Kaldır ve Herkese Görünür Yap"
+                                >
+                                  <CheckCircle2 size={15} />
+                                  <span>Yayına Al</span>
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={() => openWarnModal(post.authorId, post.authorName)}

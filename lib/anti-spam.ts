@@ -4,13 +4,16 @@ import { SecurityAlert } from "../types/admin";
 
 const FINGERPRINT_KEY = "psikoway_client_fingerprint_v1";
 const SHADOWBAN_KEY = "psikoway_shadowbanned_v1";
+const SHADOWBAN_UNTIL_KEY = "psikoway_shadowbanned_until_v1";
+const BOT_TRAP_KEY = "psikoway_bot_trap_v1";
 const WRITE_TIMESTAMPS_KEY = "psikoway_write_timestamps_v1";
 const ALERTS_COLLECTION = "moderation_alerts";
 const ALERTS_CACHE_KEY = "psikoway_security_alerts_cache_v1";
 
-// 1 Dakika İçinde İzin Verilen Maksimum Yazma Sayısı (2 defadan fazla yazan direkt kısıtlanır)
-export const MAX_WRITES_PER_MINUTE = 2;
+// 1 Dakika İçinde İzin Verilen Maksimum Yazma Sayısı (Art arda bot gibi seri spam yapanları sınırlar)
+export const MAX_WRITES_PER_MINUTE = 6;
 export const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 60 saniye
+export const RATE_LIMIT_COOLDOWN_MS = 60 * 1000; // 60 saniye geçici bekleme
 
 /**
  * İstemci Parmak İzi (Tarayıcıyı oturum kapansa bile benzersiz tanımak için)
@@ -35,11 +38,23 @@ export const getClientFingerprint = (): string => {
 export const isUserShadowbanned = (userId?: string): boolean => {
   if (typeof window === "undefined") return false;
   try {
-    // 1. Tarayıcı parmak izi kontrolü
-    const localFlag = localStorage.getItem(SHADOWBAN_KEY);
-    if (localFlag === "true") return true;
+    const now = Date.now();
 
-    // 2. Yasaklı listesi kontrolü
+    // 1. Kalıcı Honeypot Bal Küpü Tuzağı (Yalnızca gerçek botlar için)
+    const permanentBotTrap = localStorage.getItem(BOT_TRAP_KEY);
+    if (permanentBotTrap === "true") return true;
+
+    // 2. Geçici Hız Sınırı (Cooldown) Kontrolü
+    const untilStr = localStorage.getItem(SHADOWBAN_UNTIL_KEY);
+    if (untilStr) {
+      const until = parseInt(untilStr, 10);
+      if (now < until) return true;
+      // Cooldown süresi dolduysa bayrakları otomatik kaldır
+      localStorage.removeItem(SHADOWBAN_UNTIL_KEY);
+      localStorage.removeItem(SHADOWBAN_KEY);
+    }
+
+    // 3. Admin Tarafından Verilmiş Aktif Yasaklı Bildirimi Kontrolü
     const cachedAlerts = localStorage.getItem(ALERTS_CACHE_KEY);
     if (cachedAlerts && userId) {
       const list: SecurityAlert[] = JSON.parse(cachedAlerts);
@@ -55,19 +70,27 @@ export const isUserShadowbanned = (userId?: string): boolean => {
 /**
  * Kullanıcıyı Gölge Kısıtla (Shadowban)
  */
-export const setShadowbannedLocally = (status: boolean): void => {
+export const setShadowbannedLocally = (status: boolean, durationMs?: number): void => {
   if (typeof window === "undefined") return;
   try {
     if (status) {
+      if (durationMs) {
+        localStorage.setItem(SHADOWBAN_UNTIL_KEY, String(Date.now() + durationMs));
+      } else {
+        localStorage.setItem(BOT_TRAP_KEY, "true");
+      }
       localStorage.setItem(SHADOWBAN_KEY, "true");
     } else {
       localStorage.removeItem(SHADOWBAN_KEY);
+      localStorage.removeItem(SHADOWBAN_UNTIL_KEY);
+      localStorage.removeItem(BOT_TRAP_KEY);
+      localStorage.removeItem(WRITE_TIMESTAMPS_KEY);
     }
   } catch {}
 };
 
 /**
- * RATE LIMIT KONTROLÜ (Dakikada 2'den fazla yazanı direkt kısıtlar)
+ * RATE LIMIT KONTROLÜ
  * 
  * Dönüş:
  * - isAllowed: Mesajın genele açılıp açılamayacağı
@@ -88,9 +111,8 @@ export const checkAndEnforceRateLimit = async (params: {
   const now = Date.now();
   const fp = getClientFingerprint();
 
-  // 1. Kullanıcı zaten önceden gölge kısıtlanmış mı?
+  // 1. Kullanıcı aktif bir gölge kısıtlama altında mı?
   if (isUserShadowbanned(params.userId)) {
-    // Zaten kısıtlı -> Sessizce içeriği gölgeye yönlendir, admin bildirimini güncelle
     await recordSecurityAlert({
       id: `alert-${now}-${Math.random().toString(36).substring(2, 6)}`,
       userId: params.userId,
@@ -119,7 +141,6 @@ export const checkAndEnforceRateLimit = async (params: {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        // 60 saniyeden eski olanları filtrele
         timestamps = parsed.filter((t: number) => now - t < RATE_LIMIT_WINDOW_MS);
       }
     }
@@ -133,14 +154,13 @@ export const checkAndEnforceRateLimit = async (params: {
     localStorage.setItem(WRITE_TIMESTAMPS_KEY, JSON.stringify(timestamps));
   } catch {}
 
-  // 3. EŞİK KONTROLÜ: Son 60 saniyede yazma sayısı MAX_WRITES_PER_MINUTE (2)'den büyük mü?
-  // Yani dakikada 2 defa yazdıktan sonra 3. yazışta doğrudan erişim sınırı devreye girer!
+  // 3. EŞİK KONTROLÜ: Son 60 saniyede yazma sayısı MAX_WRITES_PER_MINUTE'den büyük mü?
   if (timestamps.length > MAX_WRITES_PER_MINUTE) {
-    // DİREKT ERİŞİM SINIRI GETİR (SHADOWBAN)
-    setShadowbannedLocally(true);
+    // 60 SANİYELİK GEÇİCİ BEKLEME (Kalıcı ban yerine geçici cooldown)
+    setShadowbannedLocally(true, RATE_LIMIT_COOLDOWN_MS);
 
     const alertId = `alert-${now}-${Math.random().toString(36).substring(2, 6)}`;
-    const reasonText = `Dakikada ${MAX_WRITES_PER_MINUTE} kuralı aşıldı! Son 60 saniyede ${timestamps.length}. yazma girişimi tespit edildi (Bot / Seri Spam Koruması).`;
+    const reasonText = `Dakikada ${MAX_WRITES_PER_MINUTE} kuralı aşıldı! Son 60 saniyede ${timestamps.length}. yazma girişimi tespit edildi (Geçici Spam Koruması).`;
 
     await recordSecurityAlert({
       id: alertId,
@@ -156,7 +176,7 @@ export const checkAndEnforceRateLimit = async (params: {
       attemptsInWindow: timestamps.length,
     });
 
-    console.warn(`[Bot Koruması] Erişim sınırı getirildi: ${params.userName} (FP: ${fp})`);
+    console.warn(`[Bot Koruması] Geçici hız sınırı getirildi: ${params.userName} (FP: ${fp})`);
 
     return {
       isAllowed: false,
@@ -235,10 +255,7 @@ export const getSecurityAlerts = async (): Promise<SecurityAlert[]> => {
  */
 export const unshadowbanUser = async (targetId: string, alertId?: string): Promise<void> => {
   if (typeof window !== "undefined") {
-    if (getClientFingerprint() === targetId) {
-      setShadowbannedLocally(false);
-      localStorage.removeItem(WRITE_TIMESTAMPS_KEY);
-    }
+    setShadowbannedLocally(false);
     try {
       const cached = localStorage.getItem(ALERTS_CACHE_KEY);
       if (cached) {
@@ -260,6 +277,32 @@ export const unshadowbanUser = async (targetId: string, alertId?: string): Promi
     } catch (e) {
       console.warn("Firestore unshadowban alert update error:", e);
     }
+  }
+
+  // Kullanıcının Firestore'daki gönderilerinin de gölge kısıtlamasını kaldır
+  try {
+    const { query, where, getDocs } = await import("firebase/firestore");
+    const q = query(collection(firestore, "forum_posts"), where("authorId", "==", targetId));
+    const snap = await getDocs(q);
+    for (const d of snap.docs) {
+      if (d.data().isShadowbanned) {
+        await updateDoc(doc(firestore, "forum_posts", d.id), { isShadowbanned: false });
+      }
+    }
+  } catch (e) {
+    console.warn("Firestore unshadowban posts update warning:", e);
+  }
+};
+
+/**
+ * Belirli bir gönderinin gölge kısıtlamasını doğrudan kaldırır ve yayına alır
+ */
+export const unshadowbanPost = async (postId: string): Promise<void> => {
+  try {
+    const postRef = doc(firestore, "forum_posts", postId);
+    await updateDoc(postRef, { isShadowbanned: false });
+  } catch (err) {
+    console.warn("Firestore unshadowbanPost warning:", err);
   }
 };
 
