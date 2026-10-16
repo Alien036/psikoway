@@ -362,12 +362,20 @@ export const getStoredPosts = (): ForumPost[] => {
   }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_FORUM_POSTS));
-      return INITIAL_FORUM_POSTS;
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_FORUM_POSTS;
+    const parsed = raw ? JSON.parse(raw) : [];
+    const baseList: ForumPost[] = Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_FORUM_POSTS;
+
+    const localShadow = getLocalShadowPosts();
+    if (!localShadow || localShadow.length === 0) return baseList;
+
+    const postMap = new Map<string, ForumPost>();
+    baseList.forEach((p) => postMap.set(p.id, p));
+    localShadow.forEach((lp) => {
+      if (!postMap.has(lp.id)) {
+        postMap.set(lp.id, lp);
+      }
+    });
+    return Array.from(postMap.values());
   } catch (e) {
     console.error("Failed to load forum posts from storage:", e);
     return INITIAL_FORUM_POSTS;
@@ -390,20 +398,16 @@ export const saveStoredPosts = (posts: ForumPost[]): void => {
  * İzleyiciye Göre Gönderileri ve Yorumları Filtreler:
  * - Normal kullanıcılar başkalarının gölge kısıtlı (isShadowbanned) mesajlarını ASLA göremez.
  * - Gölge kısıtlanan kişi kendi mesajını kendi sayfasında eksiksiz görür ("kendi sayfasında dursun").
- * - Admin ise (isAdmin: true) moderasyon amacıyla tüm mesajları görebilir.
+ * - Admin ise (isAdmin: true) moderasyon amacıyla hem normal hem de tüm gölge kısıtlı mesajları (11 fikrin tamamını) eksiksiz görür.
  */
 export const filterPostsForViewer = (
   posts: ForumPost[],
   viewerUserId?: string,
   isAdmin: boolean = false
 ): ForumPost[] => {
-  if (isAdmin) {
-    return posts;
-  }
-
   const clientFp = typeof window !== "undefined" ? getClientFingerprint() : "";
 
-  // Yerel gölge gönderilerini de birleştir (kullanıcı sayfayı yenilese bile gönderisi kendi ekranında kalsın)
+  // Yerel gölge gönderilerini de birleştir (kullanıcı veya yönetici sayfayı yenilese bile gönderisi ekranda kalsın)
   const localShadowPosts = getLocalShadowPosts();
   const postMap = new Map<string, ForumPost>();
 
@@ -419,13 +423,17 @@ export const filterPostsForViewer = (
 
   const merged = Array.from(postMap.values());
 
+  // Yönetici (Admin) tüm gönderileri (normal ve gölge kısıtlıların tamamını) eksiksiz görür
+  if (isAdmin) {
+    return merged;
+  }
+
   return merged
     .filter((post) => {
-      // Normal gönderiler herkese görünür
+      // Normal gönderiler herkese açıktır
       if (!post.isShadowbanned) return true;
-      // Gölge kısıtlı ise sadece gönderen yazar veya aynı tarayıcı görebilir
+      // Gölge kısıtlı gönderileri yalnızca yazan kullanıcı oturumu açıkken görebilir; diğer hiç kimse (millet/ziyaretçi) göremez
       if (viewerUserId && post.authorId === viewerUserId) return true;
-      if (clientFp && post.shadowClientFingerprint === clientFp) return true;
       return false;
     })
     .map((post) => {
@@ -433,7 +441,6 @@ export const filterPostsForViewer = (
       const visibleComments = (post.comments || []).filter((c) => {
         if (!c.isShadowbanned) return true;
         if (viewerUserId && c.authorId === viewerUserId) return true;
-        if (clientFp && c.shadowClientFingerprint === clientFp) return true;
         return false;
       });
 
@@ -514,7 +521,7 @@ export const subscribeToForumPosts = (
  */
 export const createForumPost = async (
   newPostData: Omit<ForumPost, "id" | "createdAt" | "likes" | "views" | "comments">
-): Promise<ForumPost[]> => {
+): Promise<{ updatedPosts: ForumPost[]; isShadowbanned: boolean; reason?: string }> => {
   // Anonim ve Hesapsız Gönderi Engeli: Yalnızca kayıtlı hesaplar fikir paylaşabilir
   if (newPostData.isAnonymous || !newPostData.authorId || newPostData.authorId.startsWith("guest-")) {
     throw new Error("Hesap açmayanların ve anonim kullanıcıların fikir paylaşmasına izin verilmez. Lütfen bir hesap açın veya giriş yapın.");
@@ -560,6 +567,18 @@ export const createForumPost = async (
   // 4. XSS & HTML SANITIZATION (GÜVENLİ METİN TEMİZLİĞİ)
   const cleanTitle = sanitizeContent(newPostData.title);
   const cleanContent = sanitizeContent(newPostData.content);
+
+  // 0. AYNI GÖNDERİYİ KISA SÜREDE PEŞ PEŞE GÖNDERME KONTROLÜ (Spam Engeli)
+  const trimmedNewTitle = cleanTitle.trim().toLowerCase();
+  const recentDuplicatePost = currentPosts.find((p) => {
+    if (p.authorId !== newPostData.authorId) return false;
+    const isSameTitle = p.title.trim().toLowerCase() === trimmedNewTitle;
+    const diffMs = Date.now() - new Date(p.createdAt).getTime();
+    return isSameTitle && diffMs < 60 * 1000;
+  });
+  if (recentDuplicatePost) {
+    throw new Error("Aynı başlıkla 1 dakika içinde tekrar fikir paylaşamazsınız.");
+  }
 
   // 5. BOT & SPAM RATE LIMIT KONTROLÜ (Dakikada 2'den fazla yazanı direkt kısıtla)
   const rateLimitResult = await checkAndEnforceRateLimit({
@@ -614,7 +633,11 @@ export const createForumPost = async (
     console.error("Firestore create post error:", err);
   }
 
-  return updated;
+  return {
+    updatedPosts: updated,
+    isShadowbanned: isShadow,
+    reason: rateLimitResult.reason,
+  };
 };
 
 /**
@@ -709,7 +732,7 @@ export const addPostComment = async (
     isAnonymous?: boolean;
     content: string;
   }
-): Promise<ForumPost[]> => {
+): Promise<{ updatedPosts: ForumPost[]; isShadowbanned: boolean; reason?: string }> => {
   // Anonim ve Hesapsız Yorum Engeli: Yalnızca kayıtlı hesaplar yorum yapabilir
   if (commentData.isAnonymous || !commentData.authorId || commentData.authorId === "guest" || commentData.authorId.startsWith("guest-")) {
     throw new Error("Hesap açmayanların ve anonim kullanıcıların yorum yapmasına izin verilmez. Lütfen bir hesap açın veya giriş yapın.");
@@ -752,6 +775,21 @@ export const addPostComment = async (
 
   // 4. XSS & HTML SANITIZATION
   const cleanCommentText = sanitizeContent(commentData.content);
+
+  // 0. AYNI YORUMU KISA SÜREDE PEŞ PEŞE GÖNDERME KONTROLÜ (Spam Engeli)
+  const existingPost = currentPosts.find((p) => p.id === postId);
+  if (existingPost && existingPost.comments) {
+    const trimmedNew = cleanCommentText.trim().toLowerCase();
+    const recentDuplicate = existingPost.comments.find((c) => {
+      if (c.authorId !== commentData.authorId) return false;
+      const isSameContent = c.content.trim().toLowerCase() === trimmedNew;
+      const diffMs = Date.now() - new Date(c.createdAt).getTime();
+      return isSameContent && diffMs < 45 * 1000;
+    });
+    if (recentDuplicate) {
+      throw new Error("Aynı yanıtı 45 saniye içinde art arda gönderemezsiniz.");
+    }
+  }
 
   // 5. BOT & SPAM RATE LIMIT KONTROLÜ (Dakikada 2'den fazla yazanı direkt kısıtla)
   const rateLimitResult = await checkAndEnforceRateLimit({
@@ -826,7 +864,11 @@ export const addPostComment = async (
     console.error("Firestore comment save error:", err);
   }
 
-  return updated;
+  return {
+    updatedPosts: updated,
+    isShadowbanned: isShadow,
+    reason: rateLimitResult.reason,
+  };
 };
 
 /**

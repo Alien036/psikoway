@@ -45,6 +45,7 @@ import {
   Send,
   Eye,
   ShieldCheck,
+  ShieldAlert,
   User as UserIcon,
   LogIn,
   Flame,
@@ -111,6 +112,8 @@ export default function ForumPage() {
     isAnonymousUser, 
     signInWithGoogle, 
     signInGuest, 
+    isUserBanned,
+    banReason,
     getUserDisplayName 
   } = useAuth();
 
@@ -128,6 +131,8 @@ export default function ForumPage() {
   // Yorum inputları
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [commentAnonymous, setCommentAnonymous] = useState<Record<string, boolean>>({});
+  const [submittingComments, setSubmittingComments] = useState<Record<string, boolean>>({});
+  const [lastCommentTime, setLastCommentTime] = useState<number>(0);
 
   // Modallar
   const [isNewPostModalOpen, setIsNewPostModalOpen] = useState(false);
@@ -140,13 +145,14 @@ export default function ForumPage() {
   const [newTags, setNewTags] = useState("");
   const [newContent, setNewContent] = useState("");
   const [newIsAnonymous, setNewIsAnonymous] = useState(false);
+  const [submittingPost, setSubmittingPost] = useState<boolean>(false);
   const [formError, setFormError] = useState("");
   const [postHoneypot, setPostHoneypot] = useState("");
   const [commentHoneypots, setCommentHoneypots] = useState<Record<string, string>>({});
   const [crisisModalInfo, setCrisisModalInfo] = useState<CrisisHelpInfo | null>(null);
   const [userWarningsList, setUserWarningsList] = useState<UserWarning[]>([]);
   const [realUsersCount, setRealUsersCount] = useState<number>(1);
-  const isCurrentUserBanned = user ? isUserBannedSync(user.uid) : false;
+  const isCurrentUserBanned = Boolean(isUserBanned || userProfile?.isBanned || (user && isUserBannedSync(user.uid)));
 
   // Firebase Realtime Database üzerinden canlı olarak gönderileri, beğenileri ve görüntülemeleri dinle
   useEffect(() => {
@@ -295,8 +301,23 @@ export default function ForumPage() {
       showToast("Hesabınız yasaklandığı için yorum yapamazsınız.");
       return;
     }
+    // Art arda hızlı çift tıklama / spam kilidi
+    if (submittingComments[postId]) {
+      return;
+    }
+    const now = Date.now();
+    if (now - lastCommentTime < 3000) {
+      showToast("⚠️ Lütfen ardı ardına hızlı tıklamayın. Yanıtlar arasında en az 3 saniye bekleyin.");
+      return;
+    }
+
     const content = (commentInputs[postId] || "").trim();
     if (!content) return;
+
+    // Kilidi devreye al ve kutuyu anında temizle (aynı verinin tekrar tekrar gitmesini engeller)
+    setSubmittingComments((prev) => ({ ...prev, [postId]: true }));
+    setLastCommentTime(now);
+    setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
 
     const commentAuthorName = userProfile?.displayName || user.displayName || getUserDisplayName();
     const commentAuthorAvatar = userProfile?.photoURL || user.photoURL || "";
@@ -313,6 +334,7 @@ export default function ForumPage() {
         });
       } catch {}
       showToast("Güvenlik doğrulaması başarısız oldu.");
+      setSubmittingComments((prev) => ({ ...prev, [postId]: false }));
       return;
     }
 
@@ -323,7 +345,7 @@ export default function ForumPage() {
     }
 
     try {
-      const updated = await addPostComment(postId, {
+      const result = await addPostComment(postId, {
         authorId: user.uid,
         authorName: commentAuthorName,
         authorAvatar: commentAuthorAvatar,
@@ -332,11 +354,19 @@ export default function ForumPage() {
         content,
       });
 
-      setPosts(filterPostsForViewer(updated, user.uid));
-      setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
-      showToast("Yorumunuz başarıyla paylaşıldı!");
+      setPosts(filterPostsForViewer(result.updatedPosts, user.uid));
+      
+      if (result.isShadowbanned) {
+        showToast("⚠️ Bot / Hız Sınırı: Çok hızlı yazdığınız için yanıtınız kısıtlandı (yalnızca sizde görünür, diğer insanlara gitmez).");
+      } else {
+        showToast("Yorumunuz başarıyla paylaşıldı!");
+      }
     } catch (err: any) {
       showToast(err?.message || "Yorum gönderilemedi.");
+      // Hata durumunda kullanıcının yazdığı metni geri yükle
+      setCommentInputs((prev) => ({ ...prev, [postId]: content }));
+    } finally {
+      setSubmittingComments((prev) => ({ ...prev, [postId]: false }));
     }
   };
 
@@ -441,8 +471,11 @@ export default function ForumPage() {
       setCrisisModalInfo(crisisCheck.crisisHelp);
     }
 
+    if (submittingPost) return;
+    setSubmittingPost(true);
+
     try {
-      const updated = await createForumPost({
+      const result = await createForumPost({
         title: newTitle.trim(),
         category: newCategory,
         tags: parsedTags.length > 0 ? parsedTags : ["Psikoloji", "Fikir"],
@@ -454,7 +487,7 @@ export default function ForumPage() {
         isAnonymous: false,
       });
 
-      setPosts(filterPostsForViewer(updated, user.uid));
+      setPosts(filterPostsForViewer(result.updatedPosts, user.uid));
       setIsNewPostModalOpen(false);
       // Formu sıfırla
       setNewTitle("");
@@ -463,9 +496,16 @@ export default function ForumPage() {
       setNewCategory("Psikoloji & Zihin");
       setNewIsAnonymous(false);
       setFormError("");
-      showToast("Fikriniz toplulukla paylaşıldı!");
+
+      if (result.isShadowbanned) {
+        showToast("⚠️ Bot / Hız Sınırı: Çok hızlı yazdığınız için fikriniz kısıtlandı (yalnızca sizde görünür).");
+      } else {
+        showToast("Fikriniz toplulukla paylaşıldı!");
+      }
     } catch (err: any) {
       setFormError(err?.message || "Fikir paylaşılırken bir hata oluştu.");
+    } finally {
+      setSubmittingPost(false);
     }
   };
 
@@ -839,6 +879,32 @@ export default function ForumPage() {
                         )}
                       </div>
 
+                      {/* Gölge Kısıtlı Bildirim Rozeti (Yalnızca Yazar Görür, Topluluğa Kapalıdır) */}
+                      {post.isShadowbanned && (
+                        <div 
+                          className="shadowban-author-banner"
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            background: "rgba(239, 68, 68, 0.15)",
+                            border: "1px solid rgba(239, 68, 68, 0.4)",
+                            color: "#fca5a5",
+                            padding: "8px 12px",
+                            borderRadius: "8px",
+                            fontSize: "12.5px",
+                            fontWeight: 600,
+                            marginTop: "4px",
+                            marginBottom: "12px"
+                          }}
+                        >
+                          <ShieldAlert size={16} color="#f87171" style={{ flexShrink: 0 }} />
+                          <span>
+                            👻 Yalnızca Siz Görüyorsunuz — Gölge Kısıtlı (Bu gönderi güvenlik/spam filtresi nedeniyle diğer kullanıcılara ve topluluğa GİZLENMİŞTİR)
+                          </span>
+                        </div>
+                      )}
+
                       {/* Gönderi Başlığı */}
                       <h2
                         className="post-title"
@@ -956,7 +1022,7 @@ export default function ForumPage() {
                                     </div>
                                   )}
                                   {/* Honeypot Bal Küpü Koruması (Botlar için gizli sahte alan) */}
-                                  <div className="opacity-0 absolute -z-10 pointer-events-none h-0 w-0 overflow-hidden" tabIndex={-1} aria-hidden="true">
+                                  <div style={{ display: "none" }} tabIndex={-1} aria-hidden="true">
                                     <input
                                       type="text"
                                       name="website_url"
@@ -992,12 +1058,12 @@ export default function ForumPage() {
                                   <button
                                     type="button"
                                     onClick={() => handleAddComment(post.id)}
-                                    disabled={!commentInputs[post.id]?.trim()}
+                                    disabled={submittingComments[post.id] || !commentInputs[post.id]?.trim()}
                                     className="btn-primary-solid btn-comment-send"
-                                    style={{ marginLeft: "auto" }}
+                                    style={{ marginLeft: "auto", opacity: submittingComments[post.id] ? 0.7 : 1 }}
                                   >
                                     <Send size={14} />
-                                    <span>Yanıtla</span>
+                                    <span>{submittingComments[post.id] ? "Gönderiliyor..." : "Yanıtla"}</span>
                                   </button>
                                 </div>
                               </div>
@@ -1082,6 +1148,25 @@ export default function ForumPage() {
                                         <span className="comment-profession-chip" title={`Meslek: ${comm.authorProfession}`}>
                                           <Briefcase size={9} />
                                           <span>{comm.authorProfession}</span>
+                                        </span>
+                                      )}
+                                      {comm.isShadowbanned && (
+                                        <span 
+                                          style={{
+                                            fontSize: "11px",
+                                            background: "rgba(239, 68, 68, 0.2)",
+                                            color: "#f87171",
+                                            border: "1px solid rgba(239, 68, 68, 0.45)",
+                                            padding: "2px 7px",
+                                            borderRadius: "4px",
+                                            fontWeight: 700,
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: "4px"
+                                          }}
+                                          title="Bu yanıt bot / hız sınırı nedeniyle kısıtlandı. Diğer insanlara görünmez, sadece sizde görünür."
+                                        >
+                                          👻 Kısıtlandı (Sadece Siz)
                                         </span>
                                       )}
                                       <span className="comment-time">
@@ -1238,7 +1323,7 @@ export default function ForumPage() {
 
             <form onSubmit={handleCreatePostSubmit} className="composer-form">
               {/* Honeypot Bal Küpü Koruması (Botlar için gizli sahte alan) */}
-              <div className="opacity-0 absolute -z-10 pointer-events-none h-0 w-0 overflow-hidden" tabIndex={-1} aria-hidden="true">
+              <div style={{ display: "none" }} tabIndex={-1} aria-hidden="true">
                 <label htmlFor="post-website-url">Website</label>
                 <input
                   id="post-website-url"

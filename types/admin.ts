@@ -18,9 +18,17 @@ export interface UserWarning {
 export interface AdminModerationUser {
   userId: string;
   userName: string;
+  email?: string;
+  photoURL?: string;
+  profession?: string;
+  bio?: string;
+  createdAt?: string;
+  isAnonymous?: boolean;
+  role?: string;
   isBanned: boolean;
   banReason?: string;
   bannedAt?: string;
+  bannedBy?: string;
   warningsCount: number;
   postsCount: number;
   commentsCount: number;

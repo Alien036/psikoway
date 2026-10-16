@@ -11,7 +11,8 @@ import {
   updateProfile,
   signOut 
 } from "firebase/auth";
-import { auth, googleProvider } from "../lib/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
+import { auth, googleProvider, firestore } from "../lib/firebase";
 import { UserProfile } from "../types/user";
 import { getUserProfile, saveUserProfile, migrateAllUsersFromRTDBToFirestore } from "../lib/profile-data";
 import { isDisposableEmail } from "../lib/anti-spam";
@@ -29,6 +30,8 @@ interface AuthContextType {
   updateProfileData: (data: Partial<UserProfile>) => Promise<UserProfile>;
   isRegisteredUser: boolean;
   isAnonymousUser: boolean;
+  isUserBanned: boolean;
+  banReason?: string;
   refreshProfile: () => Promise<void>;
 }
 
@@ -45,6 +48,8 @@ const AuthContext = createContext<AuthContextType>({
   updateProfileData: async () => ({} as UserProfile),
   isRegisteredUser: false,
   isAnonymousUser: true,
+  isUserBanned: false,
+  banReason: undefined,
   refreshProfile: async () => {},
 });
 
@@ -87,6 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           youtube: "",
           createdAt: new Date().toISOString(),
           isAnonymous: firebaseUser.isAnonymous,
+          isBanned: false,
         };
         const saved = await saveUserProfile(initialProfile);
         setUserProfile(saved);
@@ -104,13 +110,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
 
+    let unsubUserDoc: (() => void) | null = null;
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       await loadProfile(currentUser);
       setLoading(false);
+
+      if (unsubUserDoc) {
+        unsubUserDoc();
+        unsubUserDoc = null;
+      }
+
+      if (currentUser) {
+        try {
+          unsubUserDoc = onSnapshot(doc(firestore, "users", currentUser.uid), (snap) => {
+            if (snap.exists()) {
+              const data = snap.data() as UserProfile;
+              setUserProfile((prev) => (prev ? { ...prev, ...data } : data));
+            }
+          }, (err) => {
+            console.warn("Live user profile listener warning:", err);
+          });
+        } catch (e) {
+          console.warn("onSnapshot setup error:", e);
+        }
+      }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (unsubUserDoc) unsubUserDoc();
+    };
   }, []);
 
 
@@ -233,6 +264,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isRegisteredUser = Boolean(user && !user.isAnonymous);
   const isAnonymousUser = Boolean(!user || user.isAnonymous);
+  const isUserBanned = Boolean(userProfile?.isBanned);
+  const banReason = userProfile?.banReason;
 
   return (
     <AuthContext.Provider
@@ -249,6 +282,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateProfileData,
         isRegisteredUser,
         isAnonymousUser,
+        isUserBanned,
+        banReason,
         refreshProfile,
       }}
     >

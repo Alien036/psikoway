@@ -10,8 +10,8 @@ const WRITE_TIMESTAMPS_KEY = "psikoway_write_timestamps_v1";
 const ALERTS_COLLECTION = "moderation_alerts";
 const ALERTS_CACHE_KEY = "psikoway_security_alerts_cache_v1";
 
-// 1 Dakika İçinde İzin Verilen Maksimum Yazma Sayısı (Art arda bot gibi seri spam yapanları sınırlar)
-export const MAX_WRITES_PER_MINUTE = 6;
+// 1 Dakika İçinde İzin Verilen Maksimum Yazma Sayısı (Dakikada en fazla 2 gönderi/yorum - bot ve spam koruması)
+export const MAX_WRITES_PER_MINUTE = 2;
 export const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 60 saniye
 export const RATE_LIMIT_COOLDOWN_MS = 60 * 1000; // 60 saniye geçici bekleme
 
@@ -298,6 +298,16 @@ export const unshadowbanUser = async (targetId: string, alertId?: string): Promi
  * Belirli bir gönderinin gölge kısıtlamasını doğrudan kaldırır ve yayına alır
  */
 export const unshadowbanPost = async (postId: string): Promise<void> => {
+  if (typeof window !== "undefined") {
+    try {
+      const { deleteLocalShadowPost, getStoredPosts, saveStoredPosts } = await import("./forum-data");
+      deleteLocalShadowPost(postId);
+      const current = getStoredPosts();
+      const updated = current.map((p) => (p.id === postId ? { ...p, isShadowbanned: false } : p));
+      saveStoredPosts(updated);
+    } catch {}
+  }
+
   try {
     const postRef = doc(firestore, "forum_posts", postId);
     await updateDoc(postRef, { isShadowbanned: false });

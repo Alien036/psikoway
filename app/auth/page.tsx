@@ -236,7 +236,7 @@ function AuthForm() {
       {authMode === "register" && (
         <form onSubmit={handleEmailRegister} className="auth-form-body">
           {/* Honeypot Bal Küpü Koruması (Botlar için gizli sahte alan) */}
-          <div className="opacity-0 absolute -z-10 pointer-events-none h-0 w-0 overflow-hidden" tabIndex={-1} aria-hidden="true">
+          <div style={{ display: "none" }} tabIndex={-1} aria-hidden="true">
             <label htmlFor="reg-website-url">Website</label>
             <input
               id="reg-website-url"

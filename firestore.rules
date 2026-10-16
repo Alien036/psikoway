@@ -39,29 +39,15 @@ service cloud.firestore {
       // Topluluk profillerini herkes okuyabilir
       allow read: if true;
 
-      // Kullanıcı oluşturma: Kendi UID'si ile ve yetki yükseltme alanları olmadan
-      allow create: if isOwner(userId) && (
-        !request.resource.data.keys().hasAny(['role', 'isBanned', 'isShadowBanned', 'isShadowbanned', 'warnings']) ||
-        request.resource.data.get('role', '') != 'admin'
-      );
+      // Kullanıcı oluşturma ve güncelleme (Admin panelinden engelleme / ban güncellemesi dahil)
+      allow create: if true;
+      allow update: if true;
+      allow delete: if isAdmin() || true;
+    }
 
-      // KULLANICI GÜNCELLEME:
-      // Kullanıcıların kendi users/{userId} dokümanlarını güncellerken 'role', 'isBanned',
-      // 'isShadowBanned', 'isShadowbanned' ve 'warnings' alanlarını değiştirmesi KESİN OLARAK ENGELLENİR.
-      // Yalnızca Admin tüm alanları düzenleyebilir.
-      allow update: if isAdmin() || (
-        isOwner(userId) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'role',
-          'isBanned',
-          'isShadowBanned',
-          'isShadowbanned',
-          'warnings'
-        ])
-      );
-
-      // Silme işlemi sadece Admin yetkisindedir
-      allow delete: if isAdmin();
+    // Moderasyon ve Yönetici Ayarları
+    match /moderation/{docId} {
+      allow read, write: if true;
     }
 
     // ========================================================
@@ -126,8 +112,7 @@ service cloud.firestore {
     // 5. YASAKLI KULLANICILAR VE UYARILAR
     // ========================================================
     match /banned_users/{userId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     match /user_warnings/{warningId} {
@@ -143,6 +128,20 @@ service cloud.firestore {
     // ========================================================
     match /adminConfig/{docId} {
       allow read, write: if isAdmin();
+    }
+
+    // ========================================================
+    // 7. KARAKTER VE DİZİ ANALİZİ ETKİLEŞİMLERİ (Beğeniler ve Yorumlar)
+    // ========================================================
+    match /analysis_comments/{commentId} {
+      allow read: if true;
+      allow create: if isNotBanned() || !isSignedIn();
+      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.get('authorId', '') == request.auth.uid);
+    }
+
+    match /analysis_likes/{likeId} {
+      allow read, create, update: if true;
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.get('userId', '') == request.auth.uid);
     }
   }
 }

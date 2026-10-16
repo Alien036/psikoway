@@ -10,7 +10,8 @@ import {
   getSeriesById,
   CHARACTER_ANALYSES,
   CharacterAnalysisArticle 
-} from "../../../../lib/analysis-data";
+} from "../../../../lib/analyses-data";
+import AnalysisInteractions from "../../../../components/AnalysisInteractions";
 import { 
   ArrowLeft, 
   Clock, 
@@ -31,12 +32,10 @@ interface PageProps {
   }>;
 }
 
-export const dynamic = "force-dynamic";
-export const revalidate = 3600;
+export const revalidate = 86400; // 24 saat önbellek, statik anında açılış
 
 export async function generateStaticParams() {
-  // İlk 15 popüler karakteri build sırasında önbelleğe al, diğerleri Firestore'dan dinamik olarak çekilir
-  return CHARACTER_ANALYSES.slice(0, 15).map((char) => ({
+  return CHARACTER_ANALYSES.map((char) => ({
     id: char.id,
   }));
 }
@@ -250,6 +249,12 @@ export default async function CharacterDetailPage({ params }: PageProps) {
               </Link>
             </div>
           </section>
+
+          {/* Dinamik Kullanıcı Etkileşimleri (Beğeniler ve Yorumlar - Firestore) */}
+          <AnalysisInteractions
+            analysisId={character.id}
+            analysisTitle={`${character.characterName} — ${character.series}`}
+          />
 
           {/* Aynı Dizideki Diğer Karakterler (İlişkili Kadro) */}
           {relatedCharacters.length > 0 && (

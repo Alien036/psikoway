@@ -1,56 +1,35 @@
 // lib/series-data/index.ts
-import { doc, getDoc } from "firebase/firestore";
-import { firestore } from "../firebase";
 import { SeriesItem, CharacterAnalysisArticle, CharacterSummaryItem } from "./types";
 import catalogStatic from "./catalog-static.json";
+import { RAW_CHARACTER_ANALYSES, RAW_SERIES_LIST } from "./all-data";
 
 export * from "./types";
 
-// 1. Statik Özet Verisi (Hızlı İlk Yükleme ve Arama İçin Hafif Veri)
-export const SERIES_LIST: SeriesItem[] = catalogStatic.series as SeriesItem[];
+// 1. Statik Özet Verisi (Hızlı İlk Yükleme ve Arama İçin)
+export const SERIES_LIST: SeriesItem[] = (RAW_SERIES_LIST && RAW_SERIES_LIST.length > 0)
+  ? RAW_SERIES_LIST
+  : (catalogStatic.series as SeriesItem[]);
+
 export const CHARACTER_ANALYSES: CharacterSummaryItem[] = catalogStatic.characters as CharacterSummaryItem[];
 
-// 2. Bellek İçi Önbellek (Hızlı Tekrar Erişim)
-const characterDetailCache = new Map<string, CharacterAnalysisArticle>();
-let dynamicCatalogCache: { series: SeriesItem[]; characters: CharacterSummaryItem[] } | null = null;
+// 2. Statik Karakter Analizleri Haritası (0ms Senkron Erişim)
+const staticCharacterMap = new Map<string, CharacterAnalysisArticle>();
+for (const char of RAW_CHARACTER_ANALYSES) {
+  staticCharacterMap.set(char.id, char);
+}
+
+const seriesMap = new Map<string, SeriesItem>();
+for (const series of SERIES_LIST) {
+  seriesMap.set(series.id, series);
+}
 
 /**
- * Cloud Firestore'dan güncel dizi ve karakter kataloğu özetini çeker (ve yerel önbellekler).
+ * Statik dizi ve karakter kataloğu özetini senkron döndürür (Firestore kotası harcamaz).
  */
 export async function fetchCatalogFromFirestore(): Promise<{
   series: SeriesItem[];
   characters: CharacterSummaryItem[];
 }> {
-  if (dynamicCatalogCache) {
-    return dynamicCatalogCache;
-  }
-
-  if (typeof window !== "undefined") {
-    try {
-      const local = localStorage.getItem("psikoway_catalog_cache_v2");
-      if (local) {
-        dynamicCatalogCache = JSON.parse(local);
-        return dynamicCatalogCache!;
-      }
-    } catch {}
-  }
-
-  try {
-    const catalogDoc = await getDoc(doc(firestore, "catalog", "main"));
-    if (catalogDoc.exists()) {
-      const data = catalogDoc.data() as { series: SeriesItem[]; characters: CharacterSummaryItem[] };
-      dynamicCatalogCache = data;
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.setItem("psikoway_catalog_cache_v2", JSON.stringify(data));
-        } catch {}
-      }
-      return data;
-    }
-  } catch (err) {
-    console.warn("Firestore fetchCatalogFromFirestore notice:", err);
-  }
-
   return {
     series: SERIES_LIST,
     characters: CHARACTER_ANALYSES,
@@ -58,58 +37,30 @@ export async function fetchCatalogFromFirestore(): Promise<{
 }
 
 /**
- * Karakterin detaylı klinik analiz dosyasını Cloud Firestore'dan çeker.
- * Bellek ve localStorage önbelleklemesi ile anında (0ms) hızlı açılır.
+ * Karakterin detaylı klinik analiz dosyasını yerel statik bellekten anında (0ms) getirir.
+ * Firestore okuma kotası harcanmaz.
  */
 export async function getCharacterById(id: string): Promise<CharacterAnalysisArticle | null> {
   if (!id) return null;
-
-  // 1. RAM Önbelleği
-  if (characterDetailCache.has(id)) {
-    return characterDetailCache.get(id)!;
-  }
-
-  // 2. LocalStorage Önbelleği
-  if (typeof window !== "undefined") {
-    try {
-      const cached = localStorage.getItem(`psikoway_char_dossier_${id}`);
-      if (cached) {
-        const parsed = JSON.parse(cached) as CharacterAnalysisArticle;
-        characterDetailCache.set(id, parsed);
-        return parsed;
-      }
-    } catch {}
-  }
-
-  // 3. Cloud Firestore'dan Canlı Çekim
-  try {
-    const charDoc = await getDoc(doc(firestore, "characters", id));
-    if (charDoc.exists()) {
-      const data = charDoc.data() as CharacterAnalysisArticle;
-      characterDetailCache.set(id, data);
-      if (typeof window !== "undefined") {
-        try {
-          localStorage.setItem(`psikoway_char_dossier_${id}`, JSON.stringify(data));
-        } catch {}
-      }
-      return data;
-    }
-  } catch (err) {
-    console.error(`Firestore getCharacterById (${id}) hatası:`, err);
-  }
-
-  return null;
+  return staticCharacterMap.get(id) || null;
 }
 
 /**
- * Aynı dizideki diğer karakterleri getirir.
+ * Karakterin detaylı klinik analiz dosyasını senkron olarak getirir.
+ */
+export function getCharacterByIdSync(id: string): CharacterAnalysisArticle | null {
+  if (!id) return null;
+  return staticCharacterMap.get(id) || null;
+}
+
+/**
+ * Aynı dizideki diğer karakterleri senkron getirir.
  */
 export async function getRelatedCharacters(
   seriesId: string,
   excludeCharacterId?: string
 ): Promise<CharacterSummaryItem[]> {
-  const catalog = await fetchCatalogFromFirestore();
-  return catalog.characters.filter(
+  return CHARACTER_ANALYSES.filter(
     (c) => c.seriesId === seriesId && c.id !== excludeCharacterId
   );
 }
@@ -118,7 +69,6 @@ export async function getRelatedCharacters(
  * Belirtilen ID'ye sahip dizi/film bilgisini getirir.
  */
 export async function getSeriesById(seriesId: string): Promise<SeriesItem | null> {
-  const catalog = await fetchCatalogFromFirestore();
-  const found = catalog.series.find((s) => s.id === seriesId);
-  return found || null;
+  if (!seriesId) return null;
+  return seriesMap.get(seriesId) || null;
 }

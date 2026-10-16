@@ -9,6 +9,11 @@ export interface UserProfile {
   youtube?: string;    // YouTube kanalı / linki (örn: @kanaladi veya https://youtube.com/@kanaladi)
   createdAt?: string;
   isAnonymous: boolean;
+  role?: string;
+  isBanned?: boolean;
+  banReason?: string;
+  bannedAt?: string;
+  bannedBy?: string;
 }
 
 export interface UserStats {

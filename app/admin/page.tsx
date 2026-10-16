@@ -31,7 +31,13 @@ import {
   Database,
   Mail,
   Phone,
-  Calendar
+  Calendar,
+  Copy,
+  ExternalLink,
+  Shield,
+  UserCheck,
+  UserX,
+  Filter
 } from "lucide-react";
 import { 
   verifyAdminPassword, 
@@ -41,6 +47,8 @@ import {
   getBannedUsers, 
   banUser, 
   unbanUser, 
+  bulkBanUsers,
+  bulkUnbanUsers,
   getUserWarnings, 
   sendUserWarning, 
   deleteUserWarning,
@@ -104,6 +112,29 @@ export default function AdminPage() {
     setToast(msg);
     setTimeout(() => setToast(null), 3000);
   };
+
+  // Toplu Seçimler (Kutucuk / Checkbox)
+  const [selectedPostIds, setSelectedPostIds] = useState<string[]>([]);
+  const [selectedCommentIds, setSelectedCommentIds] = useState<string[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [userStatusFilter, setUserStatusFilter] = useState<"all" | "active" | "banned" | "registered" | "guest">("all");
+  const [bulkBanModalOpen, setBulkBanModalOpen] = useState<boolean>(false);
+  const [bulkBanReason, setBulkBanReason] = useState<string>("Topluluk kurallarını ihlal");
+  const [copiedUserId, setCopiedUserId] = useState<string | null>(null);
+
+  const copyUserId = (id: string) => {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(id);
+      setCopiedUserId(id);
+      setTimeout(() => setCopiedUserId(null), 2000);
+      showToast("Kullanıcı ID panoya kopyalandı!");
+    }
+  };
+
+  // Kısıtlanmış (Gölge) Gönderiler
+  const shadowbannedPosts = useMemo(() => {
+    return posts.filter((p) => p.isShadowbanned);
+  }, [posts]);
 
   // Aktif Gölge Kısıtlı Bildirim Sayısı
   const activeBotAlertsCount = useMemo(() => {
@@ -270,6 +301,116 @@ export default function AdminPage() {
     }
   };
 
+  // --- KUTUCUK (CHECKBOX) VE TOPLU İŞLEM YÖNETİCİLERİ ---
+  // 1. Gönderi Seçimi Toggle
+  const handleToggleSelectPost = (postId: string) => {
+    setSelectedPostIds((prev) =>
+      prev.includes(postId) ? prev.filter((id) => id !== postId) : [...prev, postId]
+    );
+  };
+
+  // 2. Tüm Gönderileri Seç / Kaldır
+  const handleToggleSelectAllPosts = () => {
+    if (filteredPosts.length > 0 && selectedPostIds.length === filteredPosts.length) {
+      setSelectedPostIds([]);
+    } else {
+      setSelectedPostIds(filteredPosts.map((p) => p.id));
+    }
+  };
+
+  // 3. Yalnızca Kısıtlanmış (Gölge) Gönderileri İşaretle
+  const handleSelectOnlyShadowbannedPosts = () => {
+    const shadowIds = filteredPosts.filter((p) => p.isShadowbanned).map((p) => p.id);
+    setSelectedPostIds(shadowIds);
+    if (shadowIds.length > 0) {
+      showToast(`${shadowIds.length} adet kısıtlanmış fikir kutucuğu işaretlendi.`);
+    } else {
+      showToast("Kısıtlanmış herhangi bir fikir bulunmuyor.");
+    }
+  };
+
+  // 4. İşaretlenen Gönderileri Toplu Sil
+  const handleBulkDeletePosts = () => {
+    if (selectedPostIds.length === 0) return;
+    if (confirm(`İşaretlenen ${selectedPostIds.length} adet fikri kalıcı olarak silmek istediğinizden emin misiniz?`)) {
+      let updated = posts;
+      selectedPostIds.forEach((id) => {
+        updated = adminDeletePost(id);
+      });
+      setPosts(updated);
+      setSelectedPostIds([]);
+      showToast(`${selectedPostIds.length} fikir kalıcı olarak silindi.`);
+    }
+  };
+
+  // 5. İşaretlenen Kısıtlı Gönderileri Toplu Yayına Al
+  const handleBulkUnshadowbanPosts = async () => {
+    if (selectedPostIds.length === 0) return;
+    try {
+      for (const id of selectedPostIds) {
+        await unshadowbanPost(id);
+      }
+      setPosts((prev) =>
+        prev.map((p) => (selectedPostIds.includes(p.id) ? { ...p, isShadowbanned: false } : p))
+      );
+      setSelectedPostIds([]);
+      showToast(`${selectedPostIds.length} fikir yayına alındı ve herkese görünür yapıldı.`);
+    } catch {
+      showToast("Toplu işlem sırasında hata oluştu.");
+    }
+  };
+
+  // 6. TEK TIKLA TÜM KISITLANMIŞ GÖNDERİLERİ SİL
+  const handleDeleteAllShadowbannedPosts = () => {
+    const shadowList = posts.filter((p) => p.isShadowbanned);
+    if (shadowList.length === 0) {
+      showToast("Kısıtlanmış herhangi bir fikir bulunmuyor.");
+      return;
+    }
+    if (confirm(`DİKKAT: Kısıtlanmış ${shadowList.length} adet spam/gölge fikrin HEPSİNİ tek tıkla kalıcı olarak silmek istiyor musunuz?`)) {
+      let updated = posts;
+      shadowList.forEach((p) => {
+        updated = adminDeletePost(p.id);
+      });
+      setPosts(updated);
+      setSelectedPostIds([]);
+      showToast(`Kısıtlanmış ${shadowList.length} fikrin hepsi başarıyla silindi!`);
+    }
+  };
+
+  // 7. Yorum Seçimi Toggle
+  const handleToggleSelectComment = (commentKey: string) => {
+    setSelectedCommentIds((prev) =>
+      prev.includes(commentKey) ? prev.filter((id) => id !== commentKey) : [...prev, commentKey]
+    );
+  };
+
+  // 8. Tüm Yorumları Seç / Kaldır
+  const handleToggleSelectAllComments = () => {
+    if (filteredComments.length > 0 && selectedCommentIds.length === filteredComments.length) {
+      setSelectedCommentIds([]);
+    } else {
+      setSelectedCommentIds(filteredComments.map((c) => `${c.postId}:::${c.commentId}`));
+    }
+  };
+
+  // 9. İşaretlenen Yorumları Toplu Sil
+  const handleBulkDeleteComments = () => {
+    if (selectedCommentIds.length === 0) return;
+    if (confirm(`İşaretlenen ${selectedCommentIds.length} adet yorumu kalıcı olarak silmek istediğinizden emin misiniz?`)) {
+      let updated = posts;
+      selectedCommentIds.forEach((key) => {
+        const [postId, commentId] = key.split(":::");
+        if (postId && commentId) {
+          updated = adminDeleteComment(postId, commentId);
+        }
+      });
+      setPosts(updated);
+      setSelectedCommentIds([]);
+      showToast(`${selectedCommentIds.length} yorum silindi.`);
+    }
+  };
+
   // Banlama Açma
   const openBanModal = (userId: string, userName: string) => {
     setTargetBanUser({ id: userId, name: userName });
@@ -277,28 +418,127 @@ export default function AdminPage() {
     setBanModalOpen(true);
   };
 
-  // Ban Onay
+  // Ban Onay (Tekil Kullanıcı Engelleme)
   const handleConfirmBan = async () => {
     if (!targetBanUser) return;
     try {
-      const updated = await banUser(targetBanUser.id, targetBanUser.name, banReasonInput);
+      const reason = banReasonInput.trim() || "Topluluk kurallarını ihlal etme";
+      const updated = await banUser(targetBanUser.id, targetBanUser.name, reason);
       setBannedUsers(updated);
+      setFirestoreUsers((prev) =>
+        prev.map((u) =>
+          u.uid === targetBanUser.id
+            ? { ...u, isBanned: true, banReason: reason, bannedAt: new Date().toISOString() }
+            : u
+        )
+      );
       setBanModalOpen(false);
-      showToast(`${targetBanUser.name} hesabı başarıyla yasaklandı.`);
+      showToast(`${targetBanUser.name} hesabı başarıyla engellendi.`);
     } catch (e) {
-      console.error(e);
+      console.error("Ban error:", e);
+      showToast("Engelleme işlemi sırasında hata oluştu.");
     }
   };
 
-  // Ban Kaldırma
+  // Ban Kaldırma (Tekil Kullanıcı Engelini Kaldır)
   const handleUnban = async (userId: string, userName: string) => {
-    if (confirm(`${userName} kullanıcısının yasağını kaldırmak istiyor musunuz?`)) {
+    if (confirm(`${userName} kullanıcısının engelini kaldırmak istiyor musunuz?`)) {
       try {
         const updated = await unbanUser(userId);
         setBannedUsers(updated);
-        showToast(`${userName} kullanıcısının yasağı kaldırıldı.`);
+        setFirestoreUsers((prev) =>
+          prev.map((u) =>
+            u.uid === userId
+              ? { ...u, isBanned: false, banReason: "", bannedAt: undefined }
+              : u
+          )
+        );
+        showToast(`${userName} kullanıcısının engeli kaldırıldı.`);
+      } catch (e) {
+        console.error("Unban error:", e);
+        showToast("Engel kaldırma sırasında hata oluştu.");
+      }
+    }
+  };
+
+  // --- KULLANICI TOPLU SEÇİM & ENGELLER ---
+  const handleToggleSelectUser = (userId: string) => {
+    setSelectedUserIds((prev) =>
+      prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const handleToggleSelectAllUsers = () => {
+    if (filteredUsers.length > 0 && selectedUserIds.length === filteredUsers.length) {
+      setSelectedUserIds([]);
+    } else {
+      setSelectedUserIds(filteredUsers.map((u) => u.userId));
+    }
+  };
+
+  const handleSelectOnlyActiveUsers = () => {
+    const activeIds = filteredUsers.filter((u) => !u.isBanned).map((u) => u.userId);
+    setSelectedUserIds(activeIds);
+    if (activeIds.length > 0) {
+      showToast(`${activeIds.length} aktif kullanıcı işaretlendi.`);
+    } else {
+      showToast("Aktif kullanıcı bulunamadı.");
+    }
+  };
+
+  const handleSelectOnlyBannedUsers = () => {
+    const bannedIds = filteredUsers.filter((u) => u.isBanned).map((u) => u.userId);
+    setSelectedUserIds(bannedIds);
+    if (bannedIds.length > 0) {
+      showToast(`${bannedIds.length} engelli kullanıcı işaretlendi.`);
+    } else {
+      showToast("Engelli kullanıcı bulunamadı.");
+    }
+  };
+
+  const handleBulkBanUsersConfirm = async () => {
+    if (selectedUserIds.length === 0) return;
+    try {
+      const reason = bulkBanReason.trim() || "Topluluk kurallarını ihlal";
+      const usersToBan = discoveredUsers
+        .filter((u) => selectedUserIds.includes(u.userId))
+        .map((u) => ({ id: u.userId, name: u.userName }));
+      const updated = await bulkBanUsers(usersToBan, reason);
+      setBannedUsers(updated);
+      setFirestoreUsers((prev) =>
+        prev.map((u) =>
+          selectedUserIds.includes(u.uid)
+            ? { ...u, isBanned: true, banReason: reason, bannedAt: new Date().toISOString() }
+            : u
+        )
+      );
+      setSelectedUserIds([]);
+      setBulkBanModalOpen(false);
+      showToast(`${usersToBan.length} kullanıcı başarıyla engellendi.`);
+    } catch (e) {
+      console.error(e);
+      showToast("Toplu engelleme sırasında hata oluştu.");
+    }
+  };
+
+  const handleBulkUnbanUsersConfirm = async () => {
+    if (selectedUserIds.length === 0) return;
+    if (confirm(`Seçilen ${selectedUserIds.length} kullanıcının engelini kaldırmak istediğinizden emin misiniz?`)) {
+      try {
+        const updated = await bulkUnbanUsers(selectedUserIds);
+        setBannedUsers(updated);
+        setFirestoreUsers((prev) =>
+          prev.map((u) =>
+            selectedUserIds.includes(u.uid)
+              ? { ...u, isBanned: false, banReason: "", bannedAt: undefined }
+              : u
+          )
+        );
+        setSelectedUserIds([]);
+        showToast(`${selectedUserIds.length} kullanıcının engeli kaldırıldı.`);
       } catch (e) {
         console.error(e);
+        showToast("Toplu engel kaldırma sırasında hata oluştu.");
       }
     }
   };
@@ -371,8 +611,18 @@ export default function AdminPage() {
     firestoreUsers.forEach((u) => {
       map.set(u.uid, {
         userId: u.uid,
-        userName: u.displayName || "PsikoWay Üyesi",
-        isBanned: false,
+        userName: u.displayName || (u.isAnonymous ? "Misafir Düşünür" : "PsikoWay Üyesi"),
+        email: u.email || "",
+        photoURL: u.photoURL || "",
+        profession: u.profession || (u.isAnonymous ? "Misafir Okuyucu" : "Düşünce Kaşifi"),
+        bio: u.bio || "",
+        createdAt: u.createdAt || "",
+        isAnonymous: Boolean(u.isAnonymous),
+        role: u.role || (u.uid === "seed-user-admin" ? "admin" : "member"),
+        isBanned: Boolean(u.isBanned),
+        banReason: u.banReason || "",
+        bannedAt: u.bannedAt || "",
+        bannedBy: u.bannedBy || "",
         warningsCount: 0,
         postsCount: 0,
         commentsCount: 0,
@@ -383,7 +633,10 @@ export default function AdminPage() {
     posts.forEach((p) => {
       const existing = map.get(p.authorId) || {
         userId: p.authorId,
-        userName: p.authorName,
+        userName: p.authorName || "PsikoWay Düşünürü",
+        photoURL: p.authorAvatar || "",
+        profession: p.authorProfession || "",
+        isAnonymous: Boolean(p.isAnonymous),
         isBanned: false,
         warningsCount: 0,
         postsCount: 0,
@@ -398,7 +651,10 @@ export default function AdminPage() {
       p.comments.forEach((c) => {
         const existing = map.get(c.authorId) || {
           userId: c.authorId,
-          userName: c.authorName,
+          userName: c.authorName || "PsikoWay Düşünürü",
+          photoURL: c.authorAvatar || "",
+          profession: c.authorProfession || "",
+          isAnonymous: Boolean(c.isAnonymous),
           isBanned: false,
           warningsCount: 0,
           postsCount: 0,
@@ -413,10 +669,11 @@ export default function AdminPage() {
     bannedUsers.forEach((b) => {
       const existing = map.get(b.userId) || {
         userId: b.userId,
-        userName: b.userName,
+        userName: b.userName || "Yasaklı Kullanıcı",
         isBanned: true,
         banReason: b.reason,
         bannedAt: b.bannedAt,
+        bannedBy: b.bannedBy || "Admin",
         warningsCount: 0,
         postsCount: 0,
         commentsCount: 0,
@@ -424,6 +681,7 @@ export default function AdminPage() {
       existing.isBanned = true;
       existing.banReason = b.reason;
       existing.bannedAt = b.bannedAt;
+      existing.bannedBy = b.bannedBy || "Admin";
       map.set(b.userId, existing);
     });
 
@@ -437,6 +695,11 @@ export default function AdminPage() {
     return Array.from(map.values());
   }, [firestoreUsers, posts, bannedUsers, warnings]);
 
+  // Kullanıcı Sayaçları
+  const activeUsersCount = useMemo(() => discoveredUsers.filter((u) => !u.isBanned).length, [discoveredUsers]);
+  const bannedUsersCount = useMemo(() => discoveredUsers.filter((u) => u.isBanned).length, [discoveredUsers]);
+  const registeredUsersCount = useMemo(() => discoveredUsers.filter((u) => !u.isAnonymous && u.email).length, [discoveredUsers]);
+  const guestUsersCount = useMemo(() => discoveredUsers.filter((u) => u.isAnonymous || !u.email).length, [discoveredUsers]);
 
   // Toplam Yorum Sayısı
   const totalCommentsCount = useMemo(() => {
@@ -501,15 +764,29 @@ export default function AdminPage() {
 
   // Filtrelenmiş Kullanıcılar
   const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) return discoveredUsers;
+    let list = discoveredUsers;
+
+    if (userStatusFilter === "active") {
+      list = list.filter((u) => !u.isBanned);
+    } else if (userStatusFilter === "banned") {
+      list = list.filter((u) => u.isBanned);
+    } else if (userStatusFilter === "registered") {
+      list = list.filter((u) => !u.isAnonymous && u.email);
+    } else if (userStatusFilter === "guest") {
+      list = list.filter((u) => u.isAnonymous || !u.email);
+    }
+
+    if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase();
-    return discoveredUsers.filter(
+    return list.filter(
       (u) =>
         u.userName.toLowerCase().includes(q) ||
         u.userId.toLowerCase().includes(q) ||
+        (u.email && u.email.toLowerCase().includes(q)) ||
+        (u.profession && u.profession.toLowerCase().includes(q)) ||
         (u.banReason && u.banReason.toLowerCase().includes(q))
     );
-  }, [discoveredUsers, searchQuery]);
+  }, [discoveredUsers, userStatusFilter, searchQuery]);
 
   // Filtrelenmiş İletişim / Randevu Mesajları (Firebase)
   const filteredMessages = useMemo(() => {
@@ -883,6 +1160,122 @@ export default function AdminPage() {
           {/* ============================================================ */}
           {activeTab === "posts" && (
             <div className="admin-section animate-fade-up">
+
+              {/* TOPLU İŞLEM & KISITLANMIŞLARI SİLME KONTROL BARI */}
+              <div 
+                className="admin-bulk-toolbar animate-fade-down"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: "12px",
+                  marginBottom: "16px",
+                  padding: "14px 20px",
+                  background: "rgba(22, 26, 38, 0.75)",
+                  border: "1px solid rgba(224, 184, 120, 0.25)",
+                  borderRadius: "14px",
+                  backdropFilter: "blur(16px)",
+                  boxShadow: "0 8px 24px rgba(0, 0, 0, 0.25)"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={handleSelectOnlyShadowbannedPosts}
+                    className="btn-white-outline btn-sm"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      borderColor: shadowbannedPosts.length > 0 ? "rgba(239, 68, 68, 0.5)" : "rgba(255, 255, 255, 0.15)",
+                      color: shadowbannedPosts.length > 0 ? "#fca5a5" : "#e2e8f0",
+                      background: shadowbannedPosts.length > 0 ? "rgba(239, 68, 68, 0.12)" : "rgba(255, 255, 255, 0.04)"
+                    }}
+                    title="Yalnızca kısıtlanmış fikirlerin kutucuklarını işaretle"
+                  >
+                    <ShieldAlert size={14} color="#f87171" />
+                    <span>Kısıtlananları İşaretle ({shadowbannedPosts.length})</span>
+                  </button>
+
+                  {shadowbannedPosts.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteAllShadowbannedPosts}
+                      className="btn-primary-solid btn-sm"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        background: "#ef4444",
+                        borderColor: "#dc2626",
+                        color: "#fff",
+                        fontWeight: 700
+                      }}
+                      title="Kısıtlanmış fikirlerin hepsini tek tıkla sil"
+                    >
+                      <Trash2 size={14} />
+                      <span>Tüm Kısıtlananları Tek Tıkla Sil ({shadowbannedPosts.length})</span>
+                    </button>
+                  )}
+                </div>
+
+                {selectedPostIds.length > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "13px", color: "#f1f5f9", display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600 }}>
+                      <CheckCircle2 size={16} color="#10b981" />
+                      <strong>{selectedPostIds.length}</strong> fikir işaretlendi
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={handleBulkUnshadowbanPosts}
+                      className="btn-white-outline btn-sm"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        color: "#4ade80",
+                        borderColor: "rgba(74, 222, 128, 0.4)",
+                        background: "rgba(74, 222, 128, 0.12)"
+                      }}
+                      title="İşaretlenen kısıtlı fikirleri yayına al"
+                    >
+                      <Check size={14} />
+                      <span>Seçilenleri Yayına Al</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleBulkDeletePosts}
+                      className="btn-danger-solid btn-sm"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        background: "#dc2626",
+                        borderColor: "#b91c1c",
+                        color: "#fff",
+                        fontWeight: 600
+                      }}
+                      title="İşaretlenen fikirleri kalıcı olarak sil"
+                    >
+                      <Trash2 size={14} />
+                      <span>Seçilenleri Sil ({selectedPostIds.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPostIds([])}
+                      className="btn-white-outline btn-sm"
+                      style={{ fontSize: "12px", padding: "4px 10px" }}
+                    >
+                      İptal
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <div className="admin-table-container">
                 {filteredPosts.length === 0 ? (
                   <div className="admin-empty">Aramanıza uygun gönderi bulunamadı.</div>
@@ -890,6 +1283,15 @@ export default function AdminPage() {
                   <table className="admin-table">
                     <thead>
                       <tr>
+                        <th style={{ width: "42px", textAlign: "center" }}>
+                          <input
+                            type="checkbox"
+                            style={{ width: "17px", height: "17px", accentColor: "#e0b878", cursor: "pointer" }}
+                            checked={filteredPosts.length > 0 && selectedPostIds.length === filteredPosts.length}
+                            onChange={handleToggleSelectAllPosts}
+                            title="Tümünü Seç / Seçimi Kaldır"
+                          />
+                        </th>
                         <th>Başlık & Detay</th>
                         <th>Yazar</th>
                         <th>Kategori</th>
@@ -900,7 +1302,18 @@ export default function AdminPage() {
                     </thead>
                     <tbody>
                       {filteredPosts.map((post, pIdx) => (
-                        <tr key={post.id || `post-${pIdx}`}>
+                        <tr 
+                          key={post.id || `post-${pIdx}`}
+                          style={selectedPostIds.includes(post.id) ? { background: "rgba(224, 184, 120, 0.08)" } : undefined}
+                        >
+                          <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              style={{ width: "17px", height: "17px", accentColor: "#e0b878", cursor: "pointer" }}
+                              checked={selectedPostIds.includes(post.id)}
+                              onChange={() => handleToggleSelectPost(post.id)}
+                            />
+                          </td>
                           <td style={{ maxWidth: "340px" }}>
                             <div className="table-post-title">{post.title}</div>
                             <div className="table-post-excerpt">
@@ -999,6 +1412,61 @@ export default function AdminPage() {
           {/* ============================================================ */}
           {activeTab === "comments" && (
             <div className="admin-section animate-fade-up">
+
+              {selectedCommentIds.length > 0 && (
+                <div 
+                  className="admin-bulk-toolbar animate-fade-down"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    flexWrap: "wrap",
+                    gap: "12px",
+                    marginBottom: "16px",
+                    padding: "12px 20px",
+                    background: "rgba(22, 26, 38, 0.75)",
+                    border: "1px solid rgba(224, 184, 120, 0.25)",
+                    borderRadius: "14px",
+                    backdropFilter: "blur(16px)"
+                  }}
+                >
+                  <span style={{ fontSize: "13px", color: "#f1f5f9", display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600 }}>
+                    <CheckCircle2 size={16} color="#10b981" />
+                    <strong>{selectedCommentIds.length}</strong> yorum işaretlendi
+                  </span>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <button
+                      type="button"
+                      onClick={handleBulkDeleteComments}
+                      className="btn-danger-solid btn-sm"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        background: "#dc2626",
+                        borderColor: "#b91c1c",
+                        color: "#fff",
+                        fontWeight: 600
+                      }}
+                      title="İşaretlenen yorumları kalıcı olarak sil"
+                    >
+                      <Trash2 size={14} />
+                      <span>Seçilenleri Sil ({selectedCommentIds.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCommentIds([])}
+                      className="btn-white-outline btn-sm"
+                      style={{ fontSize: "12px", padding: "4px 10px" }}
+                    >
+                      İptal
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="admin-table-container">
                 {filteredComments.length === 0 ? (
                   <div className="admin-empty">Aramanıza uygun yorum bulunamadı.</div>
@@ -1006,6 +1474,15 @@ export default function AdminPage() {
                   <table className="admin-table">
                     <thead>
                       <tr>
+                        <th style={{ width: "42px", textAlign: "center" }}>
+                          <input
+                            type="checkbox"
+                            style={{ width: "17px", height: "17px", accentColor: "#e0b878", cursor: "pointer" }}
+                            checked={filteredComments.length > 0 && selectedCommentIds.length === filteredComments.length}
+                            onChange={handleToggleSelectAllComments}
+                            title="Tüm Yorumları Seç / Kaldır"
+                          />
+                        </th>
                         <th>Yorum İçeriği</th>
                         <th>Hangi Fikirde</th>
                         <th>Yazar</th>
@@ -1014,64 +1491,79 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredComments.map((comm, cIdx) => (
-                        <tr key={comm.commentId || `comm-${cIdx}`}>
-                          <td style={{ maxWidth: "360px" }}>
-                            <div className="table-comment-text">{comm.content}</div>
-                          </td>
-                          <td style={{ maxWidth: "200px" }}>
-                            <div className="table-parent-post">{comm.postTitle}</div>
-                          </td>
-                          <td>
-                            <div className="table-user-name" style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                              <span>{comm.authorName}</span>
-                              {comm.isShadowbanned && (
-                                <span style={{ fontSize: "10.5px", background: "rgba(239, 68, 68, 0.2)", color: "#f87171", border: "1px solid rgba(239, 68, 68, 0.4)", padding: "2px 6px", borderRadius: "4px", fontWeight: 700 }}>
-                                  👻 Gölge Kısıtlı
-                                </span>
-                              )}
-                            </div>
-                            <div className="table-user-id">ID: {comm.authorId.slice(0, 8)}...</div>
-                          </td>
-                          <td className="table-date">
-                            {new Date(comm.createdAt).toLocaleDateString("tr-TR", {
-                              day: "numeric",
-                              month: "short",
-                            })}
-                          </td>
-                          <td>
-                            <div className="table-actions-cell">
-                              <button
-                                type="button"
-                                onClick={() => openWarnModal(comm.authorId, comm.authorName)}
-                                className="btn-action-warn"
-                                title="Yorum Sahibini Uyar"
-                              >
-                                <AlertTriangle size={15} />
-                                <span>Uyar</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openBanModal(comm.authorId, comm.authorName)}
-                                className="btn-action-ban"
-                                title="Yorum Sahibini Banla"
-                              >
-                                <Ban size={15} />
-                                <span>Banla</span>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteComment(comm.postId, comm.commentId)}
-                                className="btn-action-delete"
-                                title="Yorumu Sil"
-                              >
-                                <Trash2 size={15} />
-                                <span>Sil</span>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                      {filteredComments.map((comm, cIdx) => {
+                        const commentKey = `${comm.postId}:::${comm.commentId}`;
+                        const isSelected = selectedCommentIds.includes(commentKey);
+                        return (
+                          <tr 
+                            key={comm.commentId || `comm-${cIdx}`}
+                            style={isSelected ? { background: "rgba(224, 184, 120, 0.08)" } : undefined}
+                          >
+                            <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                style={{ width: "17px", height: "17px", accentColor: "#e0b878", cursor: "pointer" }}
+                                checked={isSelected}
+                                onChange={() => handleToggleSelectComment(commentKey)}
+                              />
+                            </td>
+                            <td style={{ maxWidth: "360px" }}>
+                              <div className="table-comment-text">{comm.content}</div>
+                            </td>
+                            <td style={{ maxWidth: "200px" }}>
+                              <div className="table-parent-post">{comm.postTitle}</div>
+                            </td>
+                            <td>
+                              <div className="table-user-name" style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                                <span>{comm.authorName}</span>
+                                {comm.isShadowbanned && (
+                                  <span style={{ fontSize: "10.5px", background: "rgba(239, 68, 68, 0.2)", color: "#f87171", border: "1px solid rgba(239, 68, 68, 0.4)", padding: "2px 6px", borderRadius: "4px", fontWeight: 700 }}>
+                                    👻 Gölge Kısıtlı
+                                  </span>
+                                )}
+                              </div>
+                              <div className="table-user-id">ID: {comm.authorId.slice(0, 8)}...</div>
+                            </td>
+                            <td className="table-date">
+                              {new Date(comm.createdAt).toLocaleDateString("tr-TR", {
+                                day: "numeric",
+                                month: "short",
+                              })}
+                            </td>
+                            <td>
+                              <div className="table-actions-cell">
+                                <button
+                                  type="button"
+                                  onClick={() => openWarnModal(comm.authorId, comm.authorName)}
+                                  className="btn-action-warn"
+                                  title="Yorum Sahibini Uyar"
+                                >
+                                  <AlertTriangle size={15} />
+                                  <span>Uyar</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openBanModal(comm.authorId, comm.authorName)}
+                                  className="btn-action-ban"
+                                  title="Yorum Sahibini Banla"
+                                >
+                                  <Ban size={15} />
+                                  <span>Banla</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteComment(comm.postId, comm.commentId)}
+                                  className="btn-action-delete"
+                                  title="Yorumu Sil"
+                                >
+                                  <Trash2 size={15} />
+                                  <span>Sil</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 )}
@@ -1095,44 +1587,357 @@ export default function AdminPage() {
                   alignItems: "center",
                   flexWrap: "wrap",
                   gap: "14px",
-                  border: "1px solid rgba(52, 211, 153, 0.25)",
-                  background: "linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(30, 41, 59, 0.4) 100%)",
+                  border: "1px solid rgba(52, 211, 153, 0.3)",
+                  background: "linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(30, 41, 59, 0.5) 100%)",
                 }}
               >
                 <div>
-                  <h4 style={{ color: "#34d399", display: "flex", alignItems: "center", gap: "8px", margin: 0, fontSize: "15px", fontWeight: 700 }}>
-                    <Database size={18} /> Cloud Firestore Veritabanı
+                  <h4 style={{ color: "#34d399", display: "flex", alignItems: "center", gap: "8px", margin: 0, fontSize: "15.5px", fontWeight: 700 }}>
+                    <Database size={18} /> Cloud Firestore Kullanıcı Veritabanı
                   </h4>
-                  <p style={{ color: "rgba(255,255,255,0.7)", fontSize: "13px", margin: "4px 0 0" }}>
-                    Tüm sistem verileri (kullanıcılar, forum gönderileri, mesajlar) Cloud Firestore üzerinde tutulmaktadır ({firestoreUsers.length} kayıtlı profil).
+                  <p style={{ color: "rgba(255,255,255,0.78)", fontSize: "13px", margin: "4px 0 0" }}>
+                    Tüm sistem profilleri ve yetkileri Cloud Firestore üzerinde canlı senkronizedir ({discoveredUsers.length} toplam kullanıcı). İstenen kullanıcı dilediğiniz an tek tıkla engellenebilir veya engeli kaldırılabilir.
                   </p>
                 </div>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={loadAllData}
+                    className="btn-white-outline btn-sm"
+                    style={{ fontSize: "12.5px" }}
+                    title="Kullanıcıları Yeniden Yükle"
+                  >
+                    <RefreshCw size={13} />
+                    <span>Listeyi Yenile</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleMigrateUsers}
+                    disabled={migratingUsers}
+                    className="btn-primary"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      padding: "8px 16px",
+                      fontSize: "12.5px",
+                      fontWeight: 600,
+                      borderRadius: "8px",
+                      cursor: migratingUsers ? "not-allowed" : "pointer",
+                    }}
+                    title="Cloud Firestore kullanıcılarını senkronize eder"
+                  >
+                    <RefreshCw size={13} className={migratingUsers ? "animate-spin" : ""} />
+                    {migratingUsers ? "Senkronize Ediliyor..." : "Firestore Senkronizasyonu"}
+                  </button>
+                </div>
+              </div>
+
+              {/* KULLANICI İSTATİSTİK ÖZET ROZETLERİ */}
+              <div 
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+                  gap: "12px",
+                  marginBottom: "16px"
+                }}
+              >
+                <div 
+                  onClick={() => setUserStatusFilter("all")}
+                  style={{
+                    cursor: "pointer",
+                    padding: "12px 16px",
+                    background: userStatusFilter === "all" ? "rgba(224, 184, 120, 0.16)" : "rgba(255, 255, 255, 0.03)",
+                    border: userStatusFilter === "all" ? "1.5px solid #e0b878" : "1px solid rgba(255, 255, 255, 0.08)",
+                    borderRadius: "12px",
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  <div style={{ fontSize: "12px", color: "rgba(255, 255, 255, 0.65)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span>Toplam Kullanıcı</span>
+                    <Users size={14} color="#e0b878" />
+                  </div>
+                  <strong style={{ fontSize: "20px", color: "#ffffff", display: "block", marginTop: "4px" }}>
+                    {discoveredUsers.length}
+                  </strong>
+                </div>
+
+                <div 
+                  onClick={() => setUserStatusFilter("active")}
+                  style={{
+                    cursor: "pointer",
+                    padding: "12px 16px",
+                    background: userStatusFilter === "active" ? "rgba(52, 211, 153, 0.16)" : "rgba(255, 255, 255, 0.03)",
+                    border: userStatusFilter === "active" ? "1.5px solid #34d399" : "1px solid rgba(255, 255, 255, 0.08)",
+                    borderRadius: "12px",
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  <div style={{ fontSize: "12px", color: "rgba(255, 255, 255, 0.65)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span>Aktif Üyeler</span>
+                    <UserCheck size={14} color="#34d399" />
+                  </div>
+                  <strong style={{ fontSize: "20px", color: "#34d399", display: "block", marginTop: "4px" }}>
+                    {activeUsersCount}
+                  </strong>
+                </div>
+
+                <div 
+                  onClick={() => setUserStatusFilter("banned")}
+                  style={{
+                    cursor: "pointer",
+                    padding: "12px 16px",
+                    background: userStatusFilter === "banned" ? "rgba(239, 68, 68, 0.18)" : "rgba(255, 255, 255, 0.03)",
+                    border: userStatusFilter === "banned" ? "1.5px solid #ef4444" : "1px solid rgba(255, 255, 255, 0.08)",
+                    borderRadius: "12px",
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  <div style={{ fontSize: "12px", color: "rgba(255, 255, 255, 0.65)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span>Engellenenler (Banlı)</span>
+                    <Ban size={14} color="#f87171" />
+                  </div>
+                  <strong style={{ fontSize: "20px", color: "#f87171", display: "block", marginTop: "4px" }}>
+                    {bannedUsersCount}
+                  </strong>
+                </div>
+
+                <div 
+                  onClick={() => setUserStatusFilter("registered")}
+                  style={{
+                    cursor: "pointer",
+                    padding: "12px 16px",
+                    background: userStatusFilter === "registered" ? "rgba(99, 102, 241, 0.16)" : "rgba(255, 255, 255, 0.03)",
+                    border: userStatusFilter === "registered" ? "1.5px solid #818cf8" : "1px solid rgba(255, 255, 255, 0.08)",
+                    borderRadius: "12px",
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  <div style={{ fontSize: "12px", color: "rgba(255, 255, 255, 0.65)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span>Kayıtlı E-Postalar</span>
+                    <Mail size={14} color="#818cf8" />
+                  </div>
+                  <strong style={{ fontSize: "20px", color: "#818cf8", display: "block", marginTop: "4px" }}>
+                    {registeredUsersCount}
+                  </strong>
+                </div>
+
+                <div 
+                  onClick={() => setUserStatusFilter("guest")}
+                  style={{
+                    cursor: "pointer",
+                    padding: "12px 16px",
+                    background: userStatusFilter === "guest" ? "rgba(148, 163, 184, 0.16)" : "rgba(255, 255, 255, 0.03)",
+                    border: userStatusFilter === "guest" ? "1.5px solid #94a3b8" : "1px solid rgba(255, 255, 255, 0.08)",
+                    borderRadius: "12px",
+                    transition: "all 0.2s ease"
+                  }}
+                >
+                  <div style={{ fontSize: "12px", color: "rgba(255, 255, 255, 0.65)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span>Misafir / Anonim</span>
+                    <User size={14} color="#94a3b8" />
+                  </div>
+                  <strong style={{ fontSize: "20px", color: "#cbd5e1", display: "block", marginTop: "4px" }}>
+                    {guestUsersCount}
+                  </strong>
+                </div>
+              </div>
+
+              {/* TOPLU İŞLEM & KULLANICI SEÇİM KONTROL BARI */}
+              <div 
+                className="admin-bulk-toolbar animate-fade-down"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  flexWrap: "wrap",
+                  gap: "12px",
+                  marginBottom: "16px",
+                  padding: "14px 20px",
+                  background: "rgba(22, 26, 38, 0.8)",
+                  border: "1px solid rgba(224, 184, 120, 0.25)",
+                  borderRadius: "14px",
+                  backdropFilter: "blur(16px)",
+                  boxShadow: "0 8px 24px rgba(0, 0, 0, 0.25)"
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                  <button
+                    type="button"
+                    onClick={handleToggleSelectAllUsers}
+                    className="btn-white-outline btn-sm"
+                    style={{ fontSize: "12px", padding: "6px 12px" }}
+                  >
+                    <span>{selectedUserIds.length === filteredUsers.length && filteredUsers.length > 0 ? "Seçimi Kaldır" : "Tümünü İşaretle"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSelectOnlyActiveUsers}
+                    className="btn-white-outline btn-sm"
+                    style={{ fontSize: "12px", padding: "6px 12px", color: "#34d399", borderColor: "rgba(52, 211, 153, 0.3)" }}
+                  >
+                    <Check size={13} />
+                    <span>Aktifleri Seç ({activeUsersCount})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleSelectOnlyBannedUsers}
+                    className="btn-white-outline btn-sm"
+                    style={{ fontSize: "12px", padding: "6px 12px", color: "#f87171", borderColor: "rgba(239, 68, 68, 0.3)" }}
+                  >
+                    <Ban size={13} />
+                    <span>Engellileri Seç ({bannedUsersCount})</span>
+                  </button>
+                </div>
+
+                {selectedUserIds.length > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: "13px", color: "#f1f5f9", display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: 600 }}>
+                      <CheckCircle2 size={16} color="#10b981" />
+                      <strong>{selectedUserIds.length}</strong> kullanıcı seçildi
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setBulkBanModalOpen(true)}
+                      className="btn-primary-solid btn-sm"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        background: "#ef4444",
+                        borderColor: "#dc2626",
+                        color: "#fff",
+                        fontWeight: 700
+                      }}
+                      title="İşaretlenen kullanıcıların erişimini engelle"
+                    >
+                      <Ban size={14} />
+                      <span>Seçilenleri Engelle ({selectedUserIds.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleBulkUnbanUsersConfirm}
+                      className="btn-white-outline btn-sm"
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        color: "#34d399",
+                        borderColor: "rgba(52, 211, 153, 0.5)",
+                        background: "rgba(52, 211, 153, 0.12)"
+                      }}
+                      title="İşaretlenen kullanıcıların engelini kaldır"
+                    >
+                      <Unlock size={14} />
+                      <span>Engeli Kaldır ({selectedUserIds.length})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedUserIds([])}
+                      className="btn-white-outline btn-sm"
+                      style={{ fontSize: "12px", padding: "4px 10px" }}
+                    >
+                      İptal
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* FİLTRE BUTONLARI */}
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginBottom: "14px" }}>
+                <span style={{ fontSize: "12.5px", color: "rgba(255,255,255,0.6)", display: "flex", alignItems: "center", gap: "4px", marginRight: "4px" }}>
+                  <Filter size={13} /> Filtrele:
+                </span>
                 <button
                   type="button"
-                  onClick={handleMigrateUsers}
-                  disabled={migratingUsers}
-                  className="btn-primary"
+                  onClick={() => setUserStatusFilter("all")}
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    padding: "10px 18px",
-                    fontSize: "13px",
+                    padding: "5px 12px",
+                    borderRadius: "20px",
+                    fontSize: "12px",
                     fontWeight: 600,
-                    borderRadius: "8px",
-                    cursor: migratingUsers ? "not-allowed" : "pointer",
+                    cursor: "pointer",
+                    border: userStatusFilter === "all" ? "1px solid #e0b878" : "1px solid rgba(255,255,255,0.15)",
+                    background: userStatusFilter === "all" ? "rgba(224, 184, 120, 0.2)" : "rgba(255,255,255,0.04)",
+                    color: userStatusFilter === "all" ? "#e0b878" : "#fff"
                   }}
-                  title="Cloud Firestore kullanıcılarını yeniler"
                 >
-                  <RefreshCw size={14} className={migratingUsers ? "animate-spin" : ""} />
-                  {migratingUsers ? "Yenileniyor..." : "Firestore Verilerini Yenile"}
+                  Tümü ({discoveredUsers.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserStatusFilter("active")}
+                  style={{
+                    padding: "5px 12px",
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    border: userStatusFilter === "active" ? "1px solid #34d399" : "1px solid rgba(255,255,255,0.15)",
+                    background: userStatusFilter === "active" ? "rgba(52, 211, 153, 0.2)" : "rgba(255,255,255,0.04)",
+                    color: userStatusFilter === "active" ? "#34d399" : "#fff"
+                  }}
+                >
+                  Aktif ({activeUsersCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserStatusFilter("banned")}
+                  style={{
+                    padding: "5px 12px",
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    border: userStatusFilter === "banned" ? "1px solid #ef4444" : "1px solid rgba(255,255,255,0.15)",
+                    background: userStatusFilter === "banned" ? "rgba(239, 68, 68, 0.25)" : "rgba(255,255,255,0.04)",
+                    color: userStatusFilter === "banned" ? "#fca5a5" : "#fff"
+                  }}
+                >
+                  ⛔ Engellenenler ({bannedUsersCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserStatusFilter("registered")}
+                  style={{
+                    padding: "5px 12px",
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    border: userStatusFilter === "registered" ? "1px solid #818cf8" : "1px solid rgba(255,255,255,0.15)",
+                    background: userStatusFilter === "registered" ? "rgba(99, 102, 241, 0.2)" : "rgba(255,255,255,0.04)",
+                    color: userStatusFilter === "registered" ? "#818cf8" : "#fff"
+                  }}
+                >
+                  🌟 Kayıtlı Profiller ({registeredUsersCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserStatusFilter("guest")}
+                  style={{
+                    padding: "5px 12px",
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    border: userStatusFilter === "guest" ? "1px solid #cbd5e1" : "1px solid rgba(255,255,255,0.15)",
+                    background: userStatusFilter === "guest" ? "rgba(203, 213, 225, 0.2)" : "rgba(255,255,255,0.04)",
+                    color: userStatusFilter === "guest" ? "#cbd5e1" : "#fff"
+                  }}
+                >
+                  👤 Misafirler ({guestUsersCount})
                 </button>
               </div>
 
-              
-              {/* Yasaklı Kullanıcılar Özeti */}
+              {/* Yasaklı Kullanıcılar Hızlı Kartı */}
               {bannedUsers.length > 0 && (
-                <div className="admin-banned-alert-card">
+                <div className="admin-banned-alert-card" style={{ marginBottom: "16px" }}>
                   <div className="banned-card-header">
                     <ShieldAlert size={18} />
                     <h4>Yasaklanmış (Banlı) Hesaplar ({bannedUsers.length})</h4>
@@ -1147,9 +1952,9 @@ export default function AdminPage() {
                           type="button"
                           onClick={() => handleUnban(b.userId, b.userName)}
                           className="btn-unban-pill"
-                          title="Yasağı Kaldır"
+                          title="Kullanıcının Engelini Kaldır"
                         >
-                          Banı Kaldır
+                          Engeli Kaldır
                         </button>
                       </div>
                     ))}
@@ -1158,86 +1963,270 @@ export default function AdminPage() {
               )}
 
               {/* Kullanıcı Listesi Tablosu */}
-              <div className="admin-table-container" style={{ marginTop: "16px" }}>
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Kullanıcı Adı / ID</th>
-                      <th>Durum</th>
-                      <th>Paylaşılan Fikirler</th>
-                      <th>Yorumlar</th>
-                      <th>Uyarı Sayısı</th>
-                      <th style={{ textAlign: "right" }}>Moderasyon İşlemleri</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredUsers.map((userItem, uIdx) => (
-                      <tr key={userItem.userId || `user-${uIdx}`}>
-                        <td>
-                          <div className="table-user-name">
-                            <User size={14} style={{ display: "inline", marginRight: "6px" }} />
-                            {userItem.userName}
-                          </div>
-                          <div className="table-user-id">{userItem.userId}</div>
-                        </td>
-                        <td>
-                          {userItem.isBanned ? (
-                            <span className="status-badge-banned">
-                              <Ban size={12} /> Yasaklı
-                            </span>
-                          ) : (
-                            <span className="status-badge-active">
-                              <Check size={12} /> Aktif
-                            </span>
-                          )}
-                        </td>
-                        <td>{userItem.postsCount} fikir</td>
-                        <td>{userItem.commentsCount} yorum</td>
-                        <td>
-                          {userItem.warningsCount > 0 ? (
-                            <span style={{ color: "#fbbf24", fontWeight: 700 }}>
-                              {userItem.warningsCount} uyarı
-                            </span>
-                          ) : (
-                            <span style={{ color: "rgba(255,255,255,0.4)" }}>0</span>
-                          )}
-                        </td>
-                        <td>
-                          <div className="table-actions-cell">
-                            <button
-                              type="button"
-                              onClick={() => openWarnModal(userItem.userId, userItem.userName)}
-                              className="btn-action-warn"
-                            >
-                              <AlertTriangle size={15} />
-                              <span>Uyarı At</span>
-                            </button>
-
-                            {userItem.isBanned ? (
-                              <button
-                                type="button"
-                                onClick={() => handleUnban(userItem.userId, userItem.userName)}
-                                className="btn-action-unban"
-                              >
-                                <Unlock size={15} />
-                                <span>Banı Kaldır</span>
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => openBanModal(userItem.userId, userItem.userName)}
-                                className="btn-action-ban"
-                              >
-                                <Ban size={15} />
-                                <span>Hesabı Banla</span>
-                              </button>
-                            )}
-                          </div>
-                        </td>
+              <div className="admin-table-container">
+                {filteredUsers.length === 0 ? (
+                  <div className="admin-empty" style={{ padding: "40px", textAlign: "center" }}>
+                    <Users size={36} color="rgba(255,255,255,0.3)" style={{ margin: "0 auto 12px" }} />
+                    <p style={{ margin: 0, fontSize: "15px", color: "rgba(255,255,255,0.8)" }}>
+                      Seçilen filtreye veya arama kriterine uygun kullanıcı bulunamadı.
+                    </p>
+                  </div>
+                ) : (
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: "42px", textAlign: "center" }}>
+                          <input
+                            type="checkbox"
+                            style={{ width: "17px", height: "17px", accentColor: "#e0b878", cursor: "pointer" }}
+                            checked={filteredUsers.length > 0 && selectedUserIds.length === filteredUsers.length}
+                            onChange={handleToggleSelectAllUsers}
+                            title="Tüm Kullanıcıları Seç / Kaldır"
+                          />
+                        </th>
+                        <th>Kullanıcı & Hesap</th>
+                        <th>Meslek & Katılım</th>
+                        <th>Durum</th>
+                        <th>Aktivite</th>
+                        <th style={{ textAlign: "right" }}>Engelleme & Moderasyon</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {filteredUsers.map((userItem, uIdx) => {
+                        const isSelected = selectedUserIds.includes(userItem.userId);
+                        return (
+                          <tr 
+                            key={userItem.userId || `user-${uIdx}`}
+                            style={
+                              isSelected 
+                                ? { background: "rgba(224, 184, 120, 0.08)" } 
+                                : userItem.isBanned 
+                                ? { background: "rgba(239, 68, 68, 0.06)" } 
+                                : undefined
+                            }
+                          >
+                            <td style={{ textAlign: "center" }} onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="checkbox"
+                                style={{ width: "17px", height: "17px", accentColor: "#e0b878", cursor: "pointer" }}
+                                checked={isSelected}
+                                onChange={() => handleToggleSelectUser(userItem.userId)}
+                              />
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                {userItem.photoURL ? (
+                                  <img
+                                    src={userItem.photoURL}
+                                    alt={userItem.userName}
+                                    style={{
+                                      width: "38px",
+                                      height: "38px",
+                                      borderRadius: "50%",
+                                      objectFit: "cover",
+                                      border: "1.5px solid rgba(224, 184, 120, 0.4)",
+                                      flexShrink: 0
+                                    }}
+                                  />
+                                ) : (
+                                  <div
+                                    style={{
+                                      width: "38px",
+                                      height: "38px",
+                                      borderRadius: "50%",
+                                      background: userItem.isBanned ? "rgba(239, 68, 68, 0.25)" : "linear-gradient(135deg, #1e293b 0%, #334155 100%)",
+                                      color: userItem.isBanned ? "#f87171" : "#e0b878",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      fontSize: "15px",
+                                      fontWeight: 700,
+                                      border: "1px solid rgba(255,255,255,0.15)",
+                                      flexShrink: 0
+                                    }}
+                                  >
+                                    {userItem.userName.charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                                <div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                                    <strong style={{ color: "#ffffff", fontSize: "14px" }}>
+                                      {userItem.userName}
+                                    </strong>
+                                    {userItem.role === "admin" || userItem.userId === "seed-user-admin" ? (
+                                      <span style={{ fontSize: "10px", background: "rgba(168, 85, 247, 0.2)", color: "#c084fc", border: "1px solid rgba(168, 85, 247, 0.5)", padding: "1px 6px", borderRadius: "10px", fontWeight: 700 }}>
+                                        🛡️ Yönetici
+                                      </span>
+                                    ) : !userItem.isAnonymous && userItem.email ? (
+                                      <span style={{ fontSize: "10px", background: "rgba(99, 102, 241, 0.15)", color: "#818cf8", border: "1px solid rgba(99, 102, 241, 0.4)", padding: "1px 6px", borderRadius: "10px", fontWeight: 600 }}>
+                                        🌟 Kayıtlı
+                                      </span>
+                                    ) : (
+                                      <span style={{ fontSize: "10px", background: "rgba(148, 163, 184, 0.15)", color: "#94a3b8", border: "1px solid rgba(148, 163, 184, 0.3)", padding: "1px 6px", borderRadius: "10px" }}>
+                                        Misafir
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {userItem.email && (
+                                    <div style={{ fontSize: "12px", color: "rgba(255,255,255,0.7)", display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
+                                      <Mail size={11} color="#818cf8" />
+                                      <span>{userItem.email}</span>
+                                    </div>
+                                  )}
+
+                                  <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.45)", fontFamily: "monospace", display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
+                                    <span>ID: {userItem.userId.slice(0, 12)}...</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => copyUserId(userItem.userId)}
+                                      style={{ background: "transparent", border: "none", color: copiedUserId === userItem.userId ? "#34d399" : "rgba(255,255,255,0.5)", cursor: "pointer", padding: "1px 3px" }}
+                                      title="ID'yi Panoya Kopyala"
+                                    >
+                                      {copiedUserId === userItem.userId ? <Check size={11} /> : <Copy size={11} />}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td>
+                              <div style={{ fontSize: "13px", color: "#e2e8f0", fontWeight: 500 }}>
+                                {userItem.profession || "Düşünce Kaşifi"}
+                              </div>
+                              <div style={{ fontSize: "11.5px", color: "rgba(255,255,255,0.5)", marginTop: "2px" }}>
+                                {userItem.createdAt ? (
+                                  <span>📅 {new Date(userItem.createdAt).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" })}</span>
+                                ) : (
+                                  <span>Topluluk Üyesi</span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td>
+                              {userItem.isBanned ? (
+                                <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                                  <span 
+                                    className="status-badge-banned"
+                                    style={{
+                                      background: "rgba(239, 68, 68, 0.22)",
+                                      color: "#fca5a5",
+                                      border: "1px solid rgba(239, 68, 68, 0.55)",
+                                      padding: "3px 8px",
+                                      borderRadius: "6px",
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: "5px",
+                                      fontSize: "12px",
+                                      fontWeight: 700,
+                                      width: "fit-content"
+                                    }}
+                                  >
+                                    <Ban size={12} /> Engellendi (Yasaklı)
+                                  </span>
+                                  <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.72)", maxWidth: "220px", lineHeight: "1.3" }}>
+                                    {userItem.banReason || "Topluluk kurallarını ihlal"}
+                                  </span>
+                                  {userItem.bannedAt && (
+                                    <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.45)" }}>
+                                      {new Date(userItem.bannedAt).toLocaleDateString("tr-TR")}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="status-badge-active" style={{ width: "fit-content" }}>
+                                  <Check size={12} /> Aktif
+                                </span>
+                              )}
+                            </td>
+
+                            <td>
+                              <div style={{ fontSize: "12.5px", color: "#f1f5f9" }}>
+                                <strong>{userItem.postsCount}</strong> fikir &bull; <strong>{userItem.commentsCount}</strong> yorum
+                              </div>
+                              <div style={{ marginTop: "2px" }}>
+                                {userItem.warningsCount > 0 ? (
+                                  <span style={{ fontSize: "11px", color: "#fbbf24", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "3px" }}>
+                                    <AlertTriangle size={11} />
+                                    {userItem.warningsCount} uyarı
+                                  </span>
+                                ) : (
+                                  <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)" }}>0 uyarı</span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td>
+                              <div className="table-actions-cell">
+                                <button
+                                  type="button"
+                                  onClick={() => openWarnModal(userItem.userId, userItem.userName)}
+                                  className="btn-action-warn"
+                                  title="Kullanıcıya Uyarı Mesajı Gönder"
+                                >
+                                  <AlertTriangle size={14} />
+                                  <span>Uyar</span>
+                                </button>
+
+                                {userItem.isBanned ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUnban(userItem.userId, userItem.userName)}
+                                    className="btn-action-unban"
+                                    style={{
+                                      background: "rgba(16, 185, 129, 0.18)",
+                                      borderColor: "rgba(52, 211, 153, 0.6)",
+                                      color: "#34d399",
+                                      fontWeight: 700
+                                    }}
+                                    title="Kullanıcının forum engelini kaldır"
+                                  >
+                                    <Unlock size={14} />
+                                    <span>Engeli Kaldır</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => openBanModal(userItem.userId, userItem.userName)}
+                                    className="btn-action-ban"
+                                    style={{
+                                      background: "#ef4444",
+                                      borderColor: "#dc2626",
+                                      color: "#ffffff",
+                                      fontWeight: 700
+                                    }}
+                                    title="Kullanıcının foruma yazmasını ve etkileşimini engelle"
+                                  >
+                                    <Ban size={14} />
+                                    <span>Engelle</span>
+                                  </button>
+                                )}
+
+                                <Link
+                                  href={`/profil?id=${userItem.userId}`}
+                                  target="_blank"
+                                  className="btn-white-outline btn-sm"
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "4px",
+                                    padding: "5px 9px",
+                                    fontSize: "11.5px",
+                                    borderRadius: "6px"
+                                  }}
+                                  title="Kullanıcının profilini yeni sekmede incele"
+                                >
+                                  <ExternalLink size={12} />
+                                  <span>Profil</span>
+                                </Link>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
               </div>
 
               {/* Aktif Uyarılar Listesi */}
@@ -1776,6 +2765,58 @@ export default function AdminPage() {
               </button>
               <button type="button" onClick={handleConfirmWarn} className="btn-primary-solid">
                 Uyarıyı Kullanıcıya İlet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL 3: TOPLU KULLANICI ENGELLEME MODALI --- */}
+      {bulkBanModalOpen && (
+        <div className="modal-overlay" onClick={() => setBulkBanModalOpen(false)}>
+          <div className="modal-content-box admin-modal-box animate-scale" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <div className="modal-icon-badge" style={{ background: "rgba(239, 68, 68, 0.15)", color: "#f87171" }}>
+                  <Ban size={20} />
+                </div>
+                <div>
+                  <h3>Seçilen Kullanıcıları Toplu Engelle</h3>
+                  <p>Toplam <strong>{selectedUserIds.length}</strong> kullanıcının forum erişimi kısıtlanacak.</p>
+                </div>
+              </div>
+              <button type="button" onClick={() => setBulkBanModalOpen(false)} className="modal-close-btn">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="form-group" style={{ margin: "16px 0" }}>
+              <label>Toplu Yasaklama / Engelleme Gerekçesi</label>
+              <input
+                type="text"
+                value={bulkBanReason}
+                onChange={(e) => setBulkBanReason(e.target.value)}
+                placeholder="Örn: Spam ve topluluk kurallarını ihlal"
+                className="form-control"
+              />
+              <div className="quick-reason-pills">
+                <button type="button" onClick={() => setBulkBanReason("Topluluk kurallarını ihlal")}>İhlal</button>
+                <button type="button" onClick={() => setBulkBanReason("Spam ve bot faaliyeti")}>Spam</button>
+                <button type="button" onClick={() => setBulkBanReason("Saldırgan ve saygısız dil")}>Saldırgan Dil</button>
+              </div>
+            </div>
+
+            <div className="modal-actions-footer">
+              <button type="button" onClick={() => setBulkBanModalOpen(false)} className="btn-white-outline">
+                İptal
+              </button>
+              <button 
+                type="button" 
+                onClick={handleBulkBanUsersConfirm} 
+                className="btn-danger-outline" 
+                style={{ background: "#ef4444", color: "#fff", fontWeight: 700 }}
+              >
+                Seçilen {selectedUserIds.length} Hesabı Engelle
               </button>
             </div>
           </div>

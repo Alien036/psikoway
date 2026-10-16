@@ -213,6 +213,11 @@ export const saveUserProfile = async (profile: UserProfile): Promise<UserProfile
     youtube: (profile.youtube || "").trim(),
     createdAt: profile.createdAt || new Date().toISOString(),
     isAnonymous: Boolean(profile.isAnonymous),
+    isBanned: Boolean(profile.isBanned),
+    banReason: profile.banReason || "",
+    bannedAt: profile.bannedAt || "",
+    bannedBy: profile.bannedBy || "",
+    role: profile.role || "",
   };
 
   // 1. Firebase Auth Profilini Güncelle (displayName & photoURL)
@@ -267,20 +272,58 @@ export const migrateAllUsersFromRTDBToFirestore = async (): Promise<{ success: b
 
 /**
  * Cloud Firestore'dan kayıtlı tüm kullanıcı profillerini çeker.
+ * Seed düşünürleri ve topluluk kurucu üyelerini de eksiksiz listeye dahil eder.
  */
 export const getAllUsersFromFirestore = async (): Promise<UserProfile[]> => {
+  const userMap = new Map<string, UserProfile>();
+
+  // 1. Topluluk Çekirdek / Seed Kullanıcıları Önceden Ekle
+  Object.values(SEED_COMMUNITY_USERS).forEach((seed) => {
+    if (seed.uid) {
+      userMap.set(seed.uid, {
+        uid: seed.uid,
+        email: seed.email || "",
+        displayName: seed.displayName || "PsikoWay Düşünürü",
+        photoURL: seed.photoURL || "",
+        profession: seed.profession || "Düşünce Kaşifi",
+        bio: seed.bio || "",
+        instagram: seed.instagram || "",
+        youtube: seed.youtube || "",
+        createdAt: seed.createdAt || "2026-10-01T00:00:00Z",
+        isAnonymous: false,
+        isBanned: false,
+      });
+    }
+  });
+
+  // 2. Cloud Firestore 'users' koleksiyonunu çek ve üzerine yaz (gerçek güncel veriler)
   try {
     const usersCol = collection(firestore, "users");
     const snap = await getDocs(usersCol);
-    const users: UserProfile[] = [];
     snap.forEach((d) => {
-      users.push(d.data() as UserProfile);
+      const data = d.data() as UserProfile;
+      userMap.set(d.id, {
+        ...data,
+        uid: d.id,
+        isBanned: Boolean(data.isBanned),
+        banReason: data.banReason || "",
+        bannedAt: data.bannedAt || "",
+        bannedBy: data.bannedBy || "",
+      });
     });
-    return users;
   } catch (err) {
     console.warn("getAllUsersFromFirestore warning:", err);
-    return [];
   }
+
+  // Tarihe göre sırala (en yeni kayıtlar en başta)
+  const allList = Array.from(userMap.values());
+  allList.sort((a, b) => {
+    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return dateB - dateA;
+  });
+
+  return allList;
 };
 
 

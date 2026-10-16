@@ -9,9 +9,8 @@ import {
   SERIES_LIST, 
   CHARACTER_ANALYSES, 
   SeriesItem, 
-  CharacterSummaryItem,
-  fetchCatalogFromFirestore
-} from "../../lib/analysis-data";
+  CharacterSummaryItem
+} from "../../lib/analyses-data";
 import { 
   Sparkles, 
   Clock, 
@@ -31,26 +30,14 @@ import {
 } from "lucide-react";
 
 export default function AnalysisPage() {
-  const [seriesList, setSeriesList] = useState<SeriesItem[]>(SERIES_LIST);
-  const [characterList, setCharacterList] = useState<CharacterSummaryItem[]>(CHARACTER_ANALYSES);
+  const [seriesList] = useState<SeriesItem[]>(SERIES_LIST);
+  const [characterList] = useState<CharacterSummaryItem[]>(CHARACTER_ANALYSES);
 
   const [selectedDrawerSeries, setSelectedDrawerSeries] = useState<SeriesItem | null>(null);
   const [drawerRoleFilter, setDrawerRoleFilter] = useState<"all" | "main" | "supporting">("all");
   const [mediaType, setMediaType] = useState<"all" | "movies" | "series">("all");
   const [selectedGenre, setSelectedGenre] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
-
-  // Firestore'dan canlı ve güncel kataloğu çek
-  useEffect(() => {
-    fetchCatalogFromFirestore()
-      .then((cat) => {
-        if (cat.series && cat.series.length > 0) setSeriesList(cat.series);
-        if (cat.characters && cat.characters.length > 0) setCharacterList(cat.characters);
-      })
-      .catch((err) => {
-        console.warn("Catalog sync notice:", err);
-      });
-  }, []);
 
   // ESC tuşuna basınca çekmeceyi (drawer) kapat
   useEffect(() => {

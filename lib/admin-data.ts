@@ -7,7 +7,7 @@ import {
 } from "firebase/firestore";
 import { firestore } from "./firebase";
 import { BannedUser, UserWarning } from "../types/admin";
-import { getStoredPosts, saveStoredPosts } from "./forum-data";
+import { getStoredPosts, saveStoredPosts, deleteLocalShadowPost } from "./forum-data";
 import { ForumPost } from "../types/forum";
 
 const DEFAULT_ADMIN_PASSWORD = "12345678";
@@ -135,12 +135,33 @@ export const banUser = async (
   };
   const updated = [newBan, ...filtered];
 
-  // Firestore'a yaz
+  // 1. moderation/bannedUsers'a toplu liste olarak yaz
   try {
     const banDocRef = doc(firestore, "moderation", "bannedUsers");
     await setDoc(banDocRef, { list: updated }, { merge: true });
   } catch (e) {
     console.warn("Firestore ban save error:", e);
+  }
+
+  // 2. banned_users/{userId} dokümanına kaydet
+  try {
+    const directBanRef = doc(firestore, "banned_users", userId);
+    await setDoc(directBanRef, newBan, { merge: true });
+  } catch (e) {
+    console.warn("Firestore direct ban save error:", e);
+  }
+
+  // 3. users/{userId} dokümanında isBanned alanını aktif et
+  try {
+    const userDocRef = doc(firestore, "users", userId);
+    await setDoc(userDocRef, {
+      isBanned: true,
+      banReason: newBan.reason,
+      bannedAt: newBan.bannedAt,
+      bannedBy: "Admin",
+    }, { merge: true });
+  } catch (e) {
+    console.warn("Firestore user profile ban update warning:", e);
   }
 
   if (typeof window !== "undefined") {
@@ -153,6 +174,7 @@ export const unbanUser = async (userId: string): Promise<BannedUser[]> => {
   const currentList = await getBannedUsers();
   const updated = currentList.filter((u) => u.userId !== userId);
 
+  // 1. moderation/bannedUsers'dan çıkar
   try {
     const banDocRef = doc(firestore, "moderation", "bannedUsers");
     await setDoc(banDocRef, { list: updated }, { merge: true });
@@ -160,10 +182,50 @@ export const unbanUser = async (userId: string): Promise<BannedUser[]> => {
     console.warn("Firestore unban save error:", e);
   }
 
+  // 2. banned_users/{userId} dokümanını sil
+  try {
+    const directBanRef = doc(firestore, "banned_users", userId);
+    await deleteDoc(directBanRef);
+  } catch (e) {
+    console.warn("Firestore direct ban delete error:", e);
+  }
+
+  // 3. users/{userId} dokümanında isBanned alanını false yap
+  try {
+    const userDocRef = doc(firestore, "users", userId);
+    await setDoc(userDocRef, {
+      isBanned: false,
+      banReason: "",
+      bannedAt: null,
+      bannedBy: null,
+    }, { merge: true });
+  } catch (e) {
+    console.warn("Firestore user profile unban update warning:", e);
+  }
+
   if (typeof window !== "undefined") {
     localStorage.setItem(BANNED_USERS_CACHE_KEY, JSON.stringify(updated));
   }
   return updated;
+};
+
+export const bulkBanUsers = async (
+  usersToBan: { id: string; name: string }[],
+  reason: string
+): Promise<BannedUser[]> => {
+  let list = await getBannedUsers();
+  for (const target of usersToBan) {
+    list = await banUser(target.id, target.name, reason);
+  }
+  return list;
+};
+
+export const bulkUnbanUsers = async (userIds: string[]): Promise<BannedUser[]> => {
+  let list = await getBannedUsers();
+  for (const uid of userIds) {
+    list = await unbanUser(uid);
+  }
+  return list;
 };
 
 export const isUserBannedSync = (userId: string): boolean => {
@@ -264,6 +326,7 @@ export const dismissUserWarning = async (warningId: string): Promise<void> => {
 
 // 5. ADMİN İÇERİK SİLME İŞLEMLERİ
 export const adminDeletePost = (postId: string): ForumPost[] => {
+  deleteLocalShadowPost(postId);
   const current = getStoredPosts();
   if (!postId) return current;
   const updated = current.filter((p) => p.id !== postId);
