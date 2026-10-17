@@ -28,11 +28,11 @@ export default function Home() {
       {/* Kehribar Geçişli Video Arka Plan */}
       <BackgroundVideo />
 
+      {/* Ekranın En Üstünde Sabit Kalan Menü */}
+      <Navbar />
+
       {/* --- İLK EKRAN (HERO) BÖLÜMÜ --- */}
       <section className="hero-fullscreen">
-        {/* Şeffaf Menü */}
-        <Navbar />
-
         {/* Ana Yazılar */}
         <div className="hero-content-center animate-fade-down">
           <h1>İnsanı anlamak,<br />dünyayı vitrine çıkarmak.</h1>

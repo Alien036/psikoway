@@ -76,7 +76,17 @@ export default function Navbar() {
 
   return (
     <>
-      <header className={`glass-header ${scrolled ? "scrolled" : ""}`}>
+      <header 
+        className={`glass-header fixed top-0 left-0 right-0 w-full z-[9990] ${scrolled ? "scrolled" : ""}`}
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          width: "100%",
+          zIndex: 9990,
+        }}
+      >
         {/* SOL ALAN: Üç Çizgi Hamburger Menü Butonu + Logo */}
         <div className="header-left">
           <button

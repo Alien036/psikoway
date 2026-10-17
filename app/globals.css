@@ -117,7 +117,7 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 18px 48px;
-    z-index: 1000;
+    z-index: 9990 !important;
     transition: background 0.3s cubic-bezier(0.16, 1, 0.3, 1),
                 padding 0.3s cubic-bezier(0.16, 1, 0.3, 1),
                 box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
