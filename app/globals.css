@@ -174,6 +174,432 @@ body {
     gap: 25px;
 }
 
+/* ========================================================
+   SOL GEZİNME & ÜÇ ÇİZGİ SLIDE DRAWER
+   ======================================================== */
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.side-menu-trigger-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px 8px 12px;
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 12px;
+    color: #ffffff;
+    cursor: pointer;
+    font-size: 13.5px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    user-select: none;
+}
+
+.side-menu-trigger-btn:hover {
+    background: rgba(224, 184, 120, 0.16);
+    border-color: rgba(224, 184, 120, 0.45);
+    color: #f6d8a8;
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: 0 6px 20px rgba(224, 184, 120, 0.22);
+}
+
+.side-menu-trigger-btn:active {
+    transform: scale(0.98);
+}
+
+/* Üç Çizgi Hamburger İkonu */
+.hamburger-bars {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    width: 18px;
+    height: 14px;
+}
+
+.hamburger-bars .bar {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: currentColor;
+    border-radius: 2px;
+    transition: all 0.25s ease;
+}
+
+.hamburger-bars .bar:nth-child(2) {
+    width: 75%;
+}
+
+.side-menu-trigger-btn:hover .hamburger-bars .bar:nth-child(2) {
+    width: 100%;
+}
+
+.side-menu-trigger-text {
+    font-size: 13.5px;
+    font-weight: 600;
+}
+
+.nav-brand-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 21px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.3px;
+    margin-left: 10px;
+    display: inline-block;
+}
+
+/* --- SOL SLIDE DRAWER (HAFİFÇE SAĞA KAYARAK AÇILAN PANEL) --- */
+.side-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 9998;
+}
+
+.side-drawer-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.side-drawer-panel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 350px;
+    max-width: 88vw;
+    height: 100vh;
+    background: rgba(14, 18, 27, 0.96);
+    backdrop-filter: blur(32px);
+    -webkit-backdrop-filter: blur(32px);
+    border-right: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 20px 0 60px rgba(0, 0, 0, 0.75);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    z-index: 9999;
+    transform: translateX(-100%);
+    transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.38s ease;
+    overflow-y: auto;
+    padding: 24px;
+}
+
+.side-drawer-panel.open {
+    transform: translateX(0);
+}
+
+/* Drawer Başlığı */
+.side-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.side-drawer-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: inherit;
+}
+
+.side-drawer-brand {
+    display: flex;
+    flex-direction: column;
+}
+
+.side-drawer-brand-name {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.3px;
+}
+
+.side-drawer-brand-sub {
+    font-size: 11px;
+    color: #e0b878;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.side-drawer-close-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #d1d5db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.side-drawer-close-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.45);
+    color: #f87171;
+    transform: rotate(90deg);
+}
+
+/* Drawer İçeriği (Menü Linkleri) */
+.side-drawer-body {
+    flex: 1;
+    padding: 24px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.side-drawer-section-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    padding-left: 8px;
+}
+
+.side-drawer-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.side-drawer-nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 13px 14px;
+    border-radius: 12px;
+    text-decoration: none;
+    color: #d1d5db;
+    background: transparent;
+    border: 1px solid transparent;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.side-drawer-nav-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    transform: translateX(5px);
+}
+
+.side-drawer-nav-item.active {
+    background: rgba(224, 184, 120, 0.14);
+    border-color: rgba(224, 184, 120, 0.35);
+    color: #e0b878;
+    font-weight: 600;
+}
+
+.side-nav-item-left {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+}
+
+.side-nav-icon-box {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: inherit;
+    transition: all 0.2s ease;
+}
+
+.side-drawer-nav-item:hover .side-nav-icon-box {
+    background: rgba(224, 184, 120, 0.18);
+    color: #e0b878;
+}
+
+.side-drawer-nav-item.active .side-nav-icon-box {
+    background: rgba(224, 184, 120, 0.25);
+    color: #e0b878;
+}
+
+.side-nav-label {
+    font-size: 15px;
+    letter-spacing: 0.2px;
+}
+
+.side-nav-active-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e0b878;
+    box-shadow: 0 0 10px #e0b878;
+}
+
+.side-nav-chevron {
+    color: rgba(255, 255, 255, 0.25);
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.side-drawer-nav-item:hover .side-nav-chevron {
+    color: #e0b878;
+    transform: translateX(3px);
+}
+
+/* Drawer Alt Alan (Kullanıcı / Giriş) */
+.side-drawer-footer {
+    padding-top: 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.side-drawer-user-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 10px 12px;
+}
+
+.side-drawer-user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: inherit;
+    flex: 1;
+    min-width: 0;
+}
+
+.side-user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid rgba(224, 184, 120, 0.5);
+}
+
+.side-user-avatar-placeholder {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(224, 184, 120, 0.2);
+    color: #e0b878;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.side-user-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.side-user-text strong {
+    font-size: 13.5px;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.side-user-text span {
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.5);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.side-drawer-logout-btn {
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #f87171;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.side-drawer-logout-btn:hover {
+    background: rgba(239, 68, 68, 0.22);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #fca5a5;
+}
+
+.side-drawer-login-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #e0b878, #c59752);
+    color: #0c0f17;
+    font-weight: 700;
+    font-size: 14px;
+    padding: 12px;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.25s ease;
+    box-shadow: 0 4px 14px rgba(224, 184, 120, 0.3);
+}
+
+.side-drawer-login-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(224, 184, 120, 0.45);
+}
+
+.side-drawer-motto {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.35);
+    text-align: center;
+    margin: 4px 0 0;
+    font-style: italic;
+}
+
+@media (max-width: 640px) {
+    .nav-brand-title {
+        display: none;
+    }
+    .glass-header {
+        padding: 16px 20px;
+    }
+    .side-menu-trigger-text {
+        display: none;
+    }
+    .side-menu-trigger-btn {
+        padding: 8px 10px;
+    }
+}
+
 .text-white, .text-white a {
     color: #ffffff !important;
 }
@@ -3664,11 +4090,11 @@ html {
     max-width: 900px;
     margin: 0 auto;
     text-align: center;
-    padding: 40px 24px 20px 24px;
+    padding: 10px 24px 10px 24px;
 }
 
 .forum-user-status-card {
-    margin-top: 36px;
+    margin-top: 10px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 20px;

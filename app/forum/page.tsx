@@ -45,7 +45,6 @@ import {
   Send,
   Eye,
   ShieldCheck,
-  ShieldAlert,
   User as UserIcon,
   LogIn,
   Flame,
@@ -355,12 +354,7 @@ export default function ForumPage() {
       });
 
       setPosts(filterPostsForViewer(result.updatedPosts, user.uid));
-      
-      if (result.isShadowbanned) {
-        showToast("⚠️ Bot / Hız Sınırı: Çok hızlı yazdığınız için yanıtınız kısıtlandı (yalnızca sizde görünür, diğer insanlara gitmez).");
-      } else {
-        showToast("Yorumunuz başarıyla paylaşıldı!");
-      }
+      showToast("Yorumunuz başarıyla paylaşıldı!");
     } catch (err: any) {
       showToast(err?.message || "Yorum gönderilemedi.");
       // Hata durumunda kullanıcının yazdığı metni geri yükle
@@ -497,11 +491,7 @@ export default function ForumPage() {
       setNewIsAnonymous(false);
       setFormError("");
 
-      if (result.isShadowbanned) {
-        showToast("⚠️ Bot / Hız Sınırı: Çok hızlı yazdığınız için fikriniz kısıtlandı (yalnızca sizde görünür).");
-      } else {
-        showToast("Fikriniz toplulukla paylaşıldı!");
-      }
+      showToast("Fikriniz toplulukla paylaşıldı!");
     } catch (err: any) {
       setFormError(err?.message || "Fikir paylaşılırken bir hata oluştu.");
     } finally {
@@ -524,16 +514,9 @@ export default function ForumPage() {
         </div>
       )}
 
-      {/* --- HERO / BAŞLIK BÖLÜMÜ --- */}
+      {/* --- FORUM ÜST BÖLÜMÜ --- */}
       <header className="page-header-hero forum-header-hero">
-        <div className="pill-badge" style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
-          <MessageSquareQuote size={14} />
-          <span>PsikoWay Topluluk & Fikir Alanı</span>
-        </div>
-        <h1 className="page-title">Zihinlerin Buluştuğu Düşünce Forumu</h1>
-        <p className="page-desc">
-          İçsel keşiflerini paylaş, sorular sor, derin psikolojik içgörüler kazan ve fikirlerini yargısız bir alanda diğer insanlarla buluştur.
-        </p>
+        <h1 className="sr-only">PsikoWay Psikoloji ve Düşünce Forumu</h1>
 
         {/* Kullanıcı Uyarısı Varsa Göster */}
         {activeUserWarnings.length > 0 && (
@@ -879,32 +862,6 @@ export default function ForumPage() {
                         )}
                       </div>
 
-                      {/* Gölge Kısıtlı Bildirim Rozeti (Yalnızca Yazar Görür, Topluluğa Kapalıdır) */}
-                      {post.isShadowbanned && (
-                        <div 
-                          className="shadowban-author-banner"
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                            background: "rgba(239, 68, 68, 0.15)",
-                            border: "1px solid rgba(239, 68, 68, 0.4)",
-                            color: "#fca5a5",
-                            padding: "8px 12px",
-                            borderRadius: "8px",
-                            fontSize: "12.5px",
-                            fontWeight: 600,
-                            marginTop: "4px",
-                            marginBottom: "12px"
-                          }}
-                        >
-                          <ShieldAlert size={16} color="#f87171" style={{ flexShrink: 0 }} />
-                          <span>
-                            👻 Yalnızca Siz Görüyorsunuz — Gölge Kısıtlı (Bu gönderi güvenlik/spam filtresi nedeniyle diğer kullanıcılara ve topluluğa GİZLENMİŞTİR)
-                          </span>
-                        </div>
-                      )}
-
                       {/* Gönderi Başlığı */}
                       <h2
                         className="post-title"
@@ -1148,25 +1105,6 @@ export default function ForumPage() {
                                         <span className="comment-profession-chip" title={`Meslek: ${comm.authorProfession}`}>
                                           <Briefcase size={9} />
                                           <span>{comm.authorProfession}</span>
-                                        </span>
-                                      )}
-                                      {comm.isShadowbanned && (
-                                        <span 
-                                          style={{
-                                            fontSize: "11px",
-                                            background: "rgba(239, 68, 68, 0.2)",
-                                            color: "#f87171",
-                                            border: "1px solid rgba(239, 68, 68, 0.45)",
-                                            padding: "2px 7px",
-                                            borderRadius: "4px",
-                                            fontWeight: 700,
-                                            display: "inline-flex",
-                                            alignItems: "center",
-                                            gap: "4px"
-                                          }}
-                                          title="Bu yanıt bot / hız sınırı nedeniyle kısıtlandı. Diğer insanlara görünmez, sadece sizde görünür."
-                                        >
-                                          👻 Kısıtlandı (Sadece Siz)
                                         </span>
                                       )}
                                       <span className="comment-time">

@@ -27,7 +27,14 @@ function AuthForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTarget = searchParams.get("redirect") || "/forum";
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInGuest } = useAuth();
+  const { user, isRegisteredUser, signInWithEmail, signUpWithEmail, signInWithGoogle, signInGuest, loading: authLoading } = useAuth();
+
+  // Zaten oturum açmış kullanıcıları doğrudan foruma yönlendir
+  React.useEffect(() => {
+    if (!authLoading && isRegisteredUser) {
+      router.replace(redirectTarget);
+    }
+  }, [authLoading, isRegisteredUser, redirectTarget, router]);
 
   // 'login' | 'register'
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -97,7 +104,7 @@ function AuthForm() {
     setError("");
     try {
       await signUpWithEmail(email, password, displayName, profession);
-      router.push("/profil"); // Yeni kayıt olanı profilini tamamlaması için profile yönlendir
+      router.push("/forum"); // Kayıt olan kullanıcıyı doğrudan foruma yönlendir
     } catch (err: any) {
       setError(translateFirebaseError(err.message || ""));
     } finally {
