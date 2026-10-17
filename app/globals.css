@@ -40,7 +40,7 @@ body {
     background-color: #090503; 
     color: var(--text-light);
     padding: 0; 
-    overflow-x: hidden;
+    overflow-x: clip;
 }
 
 /* --- SABİT VİDEO ARKA PLAN & KOYU KEHRİBAR GEÇİŞİ --- */
@@ -7449,12 +7449,23 @@ html {
 
 /* Genel Mobil Ayarlar (Tablet ve Telefon - 768px ve altı) */
 @media (max-width: 768px) {
-    /* 1. Ekran Taşmasını Önleme & Temel Tipografi */
-    html, body {
+    /* 1. Ekran Taşmasını Önleme & Temel Tipografi (Dikey kaydırmayı asla kilitleme) */
+    html {
+        width: 100% !important;
+        height: auto !important;
+        overflow-y: auto !important;
+        overflow-x: clip !important;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    body {
         width: 100% !important;
         max-width: 100vw !important;
-        overflow-x: hidden !important;
-        -webkit-text-size-adjust: 100%;
+        min-height: 100dvh !important;
+        height: auto !important;
+        overflow-y: visible !important;
+        overflow-x: clip !important;
+        -webkit-overflow-scrolling: touch !important;
     }
 
     /* iOS Safari otomatik yakınlaştırma (auto-zoom) engelleme */
@@ -7487,7 +7498,7 @@ html {
 
     .page-wrapper {
         padding-top: 68px !important;
-        overflow-x: hidden !important;
+        overflow: visible !important;
     }
 
     .hero-fullscreen {
@@ -7617,9 +7628,9 @@ html {
     .forum-main-container {
         padding: 20px 12px 56px 12px !important;
         width: 100% !important;
-        max-width: 100vw !important;
+        max-width: 100% !important;
         box-sizing: border-box !important;
-        overflow-x: hidden !important;
+        overflow: visible !important;
     }
 
     .forum-layout-grid {
@@ -9390,13 +9401,10 @@ html {
     }
 }
 
-/* --- Kaydırma Sürtünmesi Yok (Momentum Scroll) --- */
+/* --- Kaydırma Sürtünmesi Yok (Momentum Scroll - Sadece Modal ve Çekmeceler İçin) --- */
 @media (max-width: 768px) {
     .side-drawer-panel,
-    .forum-layout-main,
-    .content-glass-section,
     .analiz-modal-window,
-    .series-bottom-sheet-drawer,
     .bottom-sheet-body {
         -webkit-overflow-scrolling: touch !important;
         overscroll-behavior: contain !important;

@@ -46,6 +46,13 @@ export default function Navbar() {
     }
   };
 
+  // Sayfa değiştiğinde çekmeceyi kapat ve kaydırma kilidini kaldır
+  useEffect(() => {
+    setSidebarOpen(false);
+    setUserDropdownOpen(false);
+    document.body.style.overflow = "";
+  }, [pathname]);
+
   // ESC tuşuna basıldığında menüyü kapat ve arka plan kaydırmasını yönet
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
