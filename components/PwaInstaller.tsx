@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Download, X, Share, PlusSquare, MoreVertical, Smartphone, CheckCircle2 } from "lucide-react";
+import { Download, X, Share, PlusSquare, Smartphone, CheckCircle2 } from "lucide-react";
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -18,78 +18,48 @@ export default function PwaInstaller() {
   const [showBanner, setShowBanner] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
-  const [isLocalHttp, setIsLocalHttp] = useState(false);
-  const [installedSuccess, setInstalledSuccess] = useState(false);
+  const [apkDownloading, setApkDownloading] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    const ua = window.navigator.userAgent || "";
+    const uaLower = ua.toLowerCase();
+
+    // Zaten PsikoWay Android APK veya standalone PWA içinde mi çalışıyor kontrol et
+    const checkStandalone =
+      ua.includes("PsikoWayAndroidApp") ||
+      window.matchMedia("(display-mode: standalone)").matches ||
+      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
+    setIsStandalone(checkStandalone);
+
+    const iosDevice = /iphone|ipad|ipod/.test(uaLower);
+    setIsIOS(iosDevice);
 
     const isHttpsOrLocalhost =
       window.location.protocol === "https:" ||
       window.location.hostname === "localhost" ||
       window.location.hostname === "127.0.0.1";
 
-    setIsLocalHttp(!isHttpsOrLocalhost);
-
-    // ÖNEMLİ: Android Chrome'da yerel Wi-Fi IP'si (örn. http://192.168.1.101:3000) üzerinden
-    // girildiğinde sayfada <link rel="manifest"> varsa, Chrome Google Play WebAPK sunucusuna
-    // bağlanmaya çalışır ve yerel IP'ye dışarıdan erişilemediği için "Bu uygulama yüklenemez" hatası verir!
-    // Bu yüzden manifest ve Service Worker'ı yalnızca HTTPS (Vercel canlı site) veya localhost üzerinde aktif ediyoruz.
-    // Yerel IP'de ise <meta name="mobile-web-app-capable" content="yes"> ve 192x192 ikon sayesinde
-    // "Ana ekrana ekle" hatasız ve logolu olarak doğrudan ana ekrana eklenir!
-    if (isHttpsOrLocalhost) {
-      if (!document.querySelector('link[rel="manifest"]')) {
-        const link = document.createElement("link");
-        link.rel = "manifest";
-        link.href = "/manifest.json";
-        document.head.appendChild(link);
-      }
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.register("/sw.js").catch(() => {});
-      }
-    } else {
-      const existingManifest = document.querySelector('link[rel="manifest"]');
-      if (existingManifest) {
-        existingManifest.remove();
-      }
+    if (isHttpsOrLocalhost && "serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
 
-    // Zaten uygulama olarak (standalone) çalışıyor mu kontrol et
-    const checkStandalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      (window.navigator as unknown as { standalone?: boolean }).standalone === true;
-    setIsStandalone(checkStandalone);
-
-    // iOS / iPhone tespiti
-    const ua = window.navigator.userAgent.toLowerCase();
-    const iosDevice = /iphone|ipad|ipod/.test(ua);
-    setIsIOS(iosDevice);
-
-    // Mobilde alt indirme barını göster (eğer daha önce kapatmadıysa ve yüklü değilse)
-    const isMobileScreen = window.innerWidth <= 900 || /android|iphone|ipad|ipod/i.test(ua);
+    const isMobileScreen = window.innerWidth <= 900 || /android|iphone|ipad|ipod/i.test(uaLower);
     const dismissed = sessionStorage.getItem("psikoway_pwa_banner_dismissed") === "1";
     if (isMobileScreen && !checkStandalone && !dismissed) {
       setShowBanner(true);
     }
 
-    // Tarayıcı yerel kurulum istemini (beforeinstallprompt) yakala
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      if (!checkStandalone && !dismissed) {
-        setShowBanner(true);
-      }
     };
 
     const handleAppInstalled = () => {
       setDeferredPrompt(null);
       setIsStandalone(true);
       setShowBanner(false);
-      setInstalledSuccess(true);
-      setTimeout(() => {
-        setShowGuideModal(false);
-        setInstalledSuccess(false);
-      }, 2500);
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -101,24 +71,26 @@ export default function PwaInstaller() {
     };
   }, []);
 
-  const triggerInstall = useCallback(async () => {
-    if (deferredPrompt) {
-      try {
-        await deferredPrompt.prompt();
-        const choiceResult = await deferredPrompt.userChoice;
-        if (choiceResult.outcome === "accepted") {
-          setDeferredPrompt(null);
-          setShowBanner(false);
-        }
-        return;
-      } catch {
-        // Hata olursa rehber modalını aç
-      }
-    }
+  const startApkDownload = useCallback(() => {
+    setApkDownloading(true);
+    const link = document.createElement("a");
+    link.href = "/PsikoWay.apk";
+    link.download = "PsikoWay.apk";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     setShowGuideModal(true);
-  }, [deferredPrompt]);
+  }, []);
 
-  // Navbar veya Yan Çekmeceden tetiklenen "psikoway-trigger-install" olayını dinle
+  const triggerInstall = useCallback(async () => {
+    if (isIOS) {
+      setShowGuideModal(true);
+      return;
+    }
+    // Android ve diğer cihazlarda doğrudan PsikoWay.apk indirmesini başlat ve kurulum bilgisini göster
+    startApkDownload();
+  }, [isIOS, startApkDownload]);
+
   useEffect(() => {
     const handleCustomTrigger = () => {
       triggerInstall();
@@ -146,8 +118,8 @@ export default function PwaInstaller() {
               <img src="/logo.png" alt="PsikoWay Logo" className="pwa-banner-logo" />
             </div>
             <div className="pwa-banner-text">
-              <strong>PsikoWay Uygulaması</strong>
-              <span>Telefonuna indir, ana ekrandan tek dokunuşla gir</span>
+              <strong>PsikoWay Mobil Uygulaması</strong>
+              <span>{isIOS ? "Ana ekrana ekle & tam ekran kullan" : "Resmi Android APK uygulamasını indir"}</span>
             </div>
           </div>
 
@@ -158,7 +130,7 @@ export default function PwaInstaller() {
               className="pwa-banner-install-btn"
             >
               <Download size={15} />
-              <span>İndir</span>
+              <span>{isIOS ? "Yükle" : "APK İndir"}</span>
             </button>
             <button
               type="button"
@@ -172,7 +144,7 @@ export default function PwaInstaller() {
         </div>
       )}
 
-      {/* LOGOLU TELEFONA İNDİRME & ANA EKRANA EKLEME MODALI */}
+      {/* LOGOLU APK İNDİRME & KURULUM MODALI */}
       {showGuideModal && (
         <div
           className="pwa-modal-backdrop"
@@ -197,90 +169,103 @@ export default function PwaInstaller() {
               </div>
               <span className="pwa-modal-badge">
                 <Smartphone size={13} />
-                Mobil Uygulama Deneyimi
+                PsikoWay v1.0 Resmi Mobil Uygulama
               </span>
-              <h3>PsikoWay&apos;i Telefonuna İndir</h3>
+              <h3>PsikoWay Mobil Uygulaması</h3>
               <p>
-                PsikoWay logosuyla ana ekranınıza ekleyin ve tam ekran uygulama olarak anında açın.
+                {isIOS
+                  ? "iPhone / iPad cihazınızda PsikoWay logosuyla ana ekranınıza ekleyin."
+                  : "Kısayol değil, doğrudan telefonunuza kurulan gerçek Android uygulaması (PsikoWay.apk)."}
               </p>
             </div>
 
-            {installedSuccess ? (
-              <div className="pwa-install-success-box">
-                <CheckCircle2 size={36} color="#4ade80" />
-                <strong>Uygulama Başarıyla Eklendi!</strong>
-                <span>Artık telefonunuzun ana ekranındaki PsikoWay logosuna dokunarak doğrudan girebilirsiniz.</span>
-              </div>
-            ) : (
+            {!isIOS && (
               <>
+                <a
+                  href="/PsikoWay.apk"
+                  download="PsikoWay.apk"
+                  onClick={() => setApkDownloading(true)}
+                  className="pwa-modal-primary-btn"
+                  style={{ textDecoration: "none" }}
+                >
+                  <Download size={18} />
+                  <span>PsikoWay.apk Dosyasını İndir</span>
+                </a>
+
+                {apkDownloading && (
+                  <div className="pwa-install-success-box">
+                    <CheckCircle2 size={28} color="#4ade80" />
+                    <strong>PsikoWay.apk İndiriliyor!</strong>
+                    <span style={{ fontSize: "12.5px", color: "rgba(255,255,255,0.85)" }}>
+                      İndirme tamamlandığında bildirim çubuğundan veya İndirilenler klasöründen{" "}
+                      <strong>PsikoWay.apk</strong> dosyasına dokunup <strong>&ldquo;Yükle&rdquo;</strong> deyin.
+                    </span>
+                  </div>
+                )}
+
                 {deferredPrompt && (
                   <button
                     type="button"
-                    onClick={triggerInstall}
-                    className="pwa-modal-primary-btn"
+                    onClick={async () => {
+                      try {
+                        await deferredPrompt.prompt();
+                      } catch {}
+                    }}
+                    className="pwa-modal-done-btn"
+                    style={{ marginBottom: "10px" }}
                   >
-                    <Download size={18} />
-                    <span>Hemen Telefonuma Yükle</span>
+                    Alternatif: Tarayıcı Üzerinden Hızlı Kur (WebAPK)
                   </button>
                 )}
-
-                <div className="pwa-steps-container">
-                  {isIOS ? (
-                    <>
-                      <div className="pwa-step-title">iPhone / iPad (Safari) Kurulumu:</div>
-                      <div className="pwa-step-item">
-                        <span className="pwa-step-num">1</span>
-                        <div className="pwa-step-desc">
-                          Tarayıcınızın alt barındaki <strong>Paylaş</strong>{" "}
-                          <Share size={15} style={{ display: "inline", verticalAlign: "middle", color: "#e0b878" }} />{" "}
-                          simgesine dokunun.
-                        </div>
-                      </div>
-                      <div className="pwa-step-item">
-                        <span className="pwa-step-num">2</span>
-                        <div className="pwa-step-desc">
-                          Açılan menüyü aşağı kaydırıp{" "}
-                          <strong>&ldquo;Ana Ekrana Ekle&rdquo;</strong>{" "}
-                          <PlusSquare size={15} style={{ display: "inline", verticalAlign: "middle", color: "#e0b878" }} />{" "}
-                          seçeneğine basın ve sağ üstten <strong>Ekle</strong> deyin.
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="pwa-step-title">Android (Chrome / Samsung) Kurulumu:</div>
-                      <div className="pwa-step-item">
-                        <span className="pwa-step-num">1</span>
-                        <div className="pwa-step-desc">
-                          Tarayıcınızın sağ üst köşesindeki <strong>Menü ( üç nokta ⋮ )</strong>{" "}
-                          <MoreVertical size={15} style={{ display: "inline", verticalAlign: "middle", color: "#e0b878" }} />{" "}
-                          simgesine dokunun.
-                        </div>
-                      </div>
-                      <div className="pwa-step-item">
-                        <span className="pwa-step-num">2</span>
-                        <div className="pwa-step-desc">
-                          Menüden <strong>&ldquo;Ana ekrana ekle&rdquo;</strong>{" "}
-                          {!isLocalHttp && (
-                            <>
-                              veya <strong>&ldquo;Uygulamayı yükle&rdquo;</strong>{" "}
-                            </>
-                          )}
-                          seçeneğine dokunup <strong>Ekle</strong> deyin.
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
               </>
             )}
+
+            <div className="pwa-steps-container">
+              {isIOS ? (
+                <>
+                  <div className="pwa-step-title">iPhone / iPad (Safari) Kurulumu:</div>
+                  <div className="pwa-step-item">
+                    <span className="pwa-step-num">1</span>
+                    <div className="pwa-step-desc">
+                      Alt bardaki <strong>Paylaş</strong>{" "}
+                      <Share size={15} style={{ display: "inline", verticalAlign: "middle", color: "#e0b878" }} />{" "}
+                      simgesine dokunun.
+                    </div>
+                  </div>
+                  <div className="pwa-step-item">
+                    <span className="pwa-step-num">2</span>
+                    <div className="pwa-step-desc">
+                      Menüden <strong>&ldquo;Ana Ekrana Ekle&rdquo;</strong>{" "}
+                      <PlusSquare size={15} style={{ display: "inline", verticalAlign: "middle", color: "#e0b878" }} />{" "}
+                      seçeneğine basın.
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="pwa-step-title">Android APK Kurulum Adımları:</div>
+                  <div className="pwa-step-item">
+                    <span className="pwa-step-num">1</span>
+                    <div className="pwa-step-desc">
+                      Yukarıdaki <strong>&ldquo;PsikoWay.apk Dosyasını İndir&rdquo;</strong> butonuna basın ve dosyayı indirin.
+                    </div>
+                  </div>
+                  <div className="pwa-step-item">
+                    <span className="pwa-step-num">2</span>
+                    <div className="pwa-step-desc">
+                      İnen <strong>PsikoWay.apk</strong> dosyasına dokunun ve <strong>&ldquo;Yükle&rdquo;</strong> diyerek gerçek uygulamayı telefonunuza kurun.
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             <button
               type="button"
               onClick={() => setShowGuideModal(false)}
               className="pwa-modal-done-btn"
             >
-              Anladım
+              Kapat
             </button>
           </div>
         </div>

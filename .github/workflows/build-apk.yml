@@ -1,0 +1,110 @@
+name: Build PsikoWay Android APK
+
+on:
+  push:
+    paths:
+      - "android-apk/**"
+      - ".github/workflows/build-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Compile and Sign PsikoWay.apk
+        run: |
+          set -e
+          SDK_ROOT="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          BUILD_TOOLS_DIR=$(ls -d "$SDK_ROOT/build-tools/"* | sort -V | tail -n 1)
+          PLATFORM_DIR=$(ls -d "$SDK_ROOT/platforms/android-"* | sort -V | tail -n 1)
+          ANDROID_JAR="$PLATFORM_DIR/android.jar"
+
+          echo "Using BUILD_TOOLS_DIR=$BUILD_TOOLS_DIR"
+          echo "Using ANDROID_JAR=$ANDROID_JAR"
+
+          WORK_DIR="/tmp/apk-build"
+          rm -rf "$WORK_DIR"
+          mkdir -p "$WORK_DIR/compiled_res" "$WORK_DIR/gen" "$WORK_DIR/obj" "$WORK_DIR/dex"
+
+          # 1. Compile resources with aapt2
+          "$BUILD_TOOLS_DIR/aapt2" compile --dir android-apk/res -o "$WORK_DIR/compiled_res/res.zip"
+
+          # 2. Link resources and generate R.java + base APK
+          "$BUILD_TOOLS_DIR/aapt2" link \
+            -I "$ANDROID_JAR" \
+            --manifest android-apk/AndroidManifest.xml \
+            --java "$WORK_DIR/gen" \
+            -o "$WORK_DIR/unaligned.apk" \
+            "$WORK_DIR/compiled_res/res.zip"
+
+          # 3. Compile Java sources (MainActivity.java + R.java)
+          javac --release 11 \
+            -cp "$ANDROID_JAR" \
+            -d "$WORK_DIR/obj" \
+            android-apk/src/com/psikoway/app/MainActivity.java \
+            "$WORK_DIR/gen/com/psikoway/app/R.java"
+
+          # 4. Convert .class files to classes.dex using d8
+          CLASS_FILES=$(find "$WORK_DIR/obj" -name "*.class")
+          "$BUILD_TOOLS_DIR/d8" \
+            --lib "$ANDROID_JAR" \
+            --output "$WORK_DIR/dex" \
+            $CLASS_FILES
+
+          # 5. Add classes.dex to the APK root
+          cp "$WORK_DIR/dex/classes.dex" ./classes.dex
+          zip -j "$WORK_DIR/unaligned.apk" ./classes.dex
+          rm -f ./classes.dex
+
+          # 6. Align APK with zipalign
+          "$BUILD_TOOLS_DIR/zipalign" -p -f -v 4 "$WORK_DIR/unaligned.apk" "$WORK_DIR/aligned.apk"
+
+          # 7. Generate Release Keystore and Sign APK (v1 + v2 + v3 signatures)
+          keytool -genkeypair \
+            -v \
+            -keystore "$WORK_DIR/psikoway.keystore" \
+            -alias psikoway \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass psikoway123 \
+            -keypass psikoway123 \
+            -dname "CN=PsikoWay, OU=Mobile, O=PsikoWay, L=Istanbul, S=Istanbul, C=TR"
+
+          "$BUILD_TOOLS_DIR/apksigner" sign \
+            --ks "$WORK_DIR/psikoway.keystore" \
+            --ks-key-alias psikoway \
+            --ks-pass pass:psikoway123 \
+            --key-pass pass:psikoway123 \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --out public/PsikoWay.apk \
+            "$WORK_DIR/aligned.apk"
+
+          "$BUILD_TOOLS_DIR/apksigner" verify -v public/PsikoWay.apk
+          ls -lh public/PsikoWay.apk
+
+      - name: Commit PsikoWay.apk to public/
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/PsikoWay.apk
+          if ! git diff --staged --quiet; then
+            git commit -m "chore(apk): build signed PsikoWay.apk [skip ci]"
+            git push origin HEAD:main
+          fi
