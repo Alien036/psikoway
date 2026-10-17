@@ -63,9 +63,20 @@ export default function Navbar() {
     };
   }, [sidebarOpen]);
 
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
     <>
-      <header className="glass-header">
+      <header className={`glass-header ${scrolled ? "scrolled" : ""}`}>
         {/* SOL ALAN: Üç Çizgi Hamburger Menü Butonu + Logo */}
         <div className="header-left">
           <button

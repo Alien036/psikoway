@@ -103,17 +103,40 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    padding-top: 80px;
 }
 
-/* --- ŞEFFAF (GLASS) MENÜ --- */
+/* --- ŞEFFAF (GLASS) MENÜ - SABİT & SAYFAYLA BİRLİKTE AKAN (STICKY / FIXED) --- */
 .glass-header {
-    position: relative;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 25px 50px;
-    width: 100%;
-    z-index: 100;
+    padding: 18px 48px;
+    z-index: 1000;
+    transition: background 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                padding 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+                backdrop-filter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    background: rgba(9, 5, 3, 0.45);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.glass-header.scrolled {
+    padding-top: 13px;
+    padding-bottom: 13px;
+    background: rgba(9, 5, 3, 0.92) !important;
+    backdrop-filter: blur(24px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+    border-bottom: 1px solid rgba(224, 184, 120, 0.22) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65) !important;
 }
 
 .logo {
@@ -664,7 +687,7 @@ button.btn-white-outline:hover {
     color: white;
     padding: 0 20px;
     z-index: 10;
-    margin-top: -50px;
+    margin-top: -30px;
 }
 
 .hero-content-center h1 {
@@ -1419,6 +1442,7 @@ footer {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    padding-top: 85px;
 }
 
 .page-header-hero {
@@ -7410,6 +7434,18 @@ html {
     /* 2. Şeffaf Başlık & Mobil Gezinti */
     .glass-header {
         padding: 12px 16px !important;
+    }
+
+    .glass-header.scrolled {
+        padding: 9px 14px !important;
+    }
+
+    .page-wrapper {
+        padding-top: 68px !important;
+    }
+
+    .hero-fullscreen {
+        padding-top: 55px !important;
     }
 
     .nav-logo-img {
