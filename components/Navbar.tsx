@@ -194,10 +194,14 @@ export default function Navbar() {
         aria-label="Ana Gezinme Menüsü"
       >
         <div className="side-drawer-header">
-          <Link 
-            href="/" 
-            onClick={() => setSidebarOpen(false)} 
+          <button 
+            type="button"
+            onClick={() => {
+              setSidebarOpen(false);
+              router.push("/");
+            }} 
             className="side-drawer-logo"
+            style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}
           >
             <Image
               src="/logo.png"
@@ -210,7 +214,7 @@ export default function Navbar() {
               <span className="side-drawer-brand-name">PsikoWay</span>
               <span className="side-drawer-brand-sub">Zihin & Psikoloji</span>
             </div>
-          </Link>
+          </button>
 
           <button
             type="button"
@@ -230,11 +234,15 @@ export default function Navbar() {
               const isActive = pathname === item.href;
               const IconComp = item.icon;
               return (
-                <Link
+                <button
+                  type="button"
                   key={item.href}
-                  href={item.href}
-                  onClick={() => setSidebarOpen(false)}
+                  onClick={() => {
+                    setSidebarOpen(false);
+                    router.push(item.href);
+                  }}
                   className={`side-drawer-nav-item ${isActive ? "active" : ""}`}
+                  style={{ width: "100%", textAlign: "left", cursor: "pointer", fontFamily: "inherit" }}
                 >
                   <div className="side-nav-item-left">
                     <span className="side-nav-icon-box">
@@ -247,7 +255,7 @@ export default function Navbar() {
                   ) : (
                     <ChevronRight size={15} className="side-nav-chevron" />
                   )}
-                </Link>
+                </button>
               );
             })}
           </nav>
@@ -256,10 +264,14 @@ export default function Navbar() {
         <div className="side-drawer-footer">
           {user ? (
             <div className="side-drawer-user-box">
-              <Link 
-                href="/profil" 
-                onClick={() => setSidebarOpen(false)} 
+              <button 
+                type="button"
+                onClick={() => {
+                  setSidebarOpen(false);
+                  router.push("/profil");
+                }} 
                 className="side-drawer-user-info"
+                style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0, width: "100%" }}
               >
                 {userProfile?.photoURL || user.photoURL ? (
                   <img
@@ -276,7 +288,7 @@ export default function Navbar() {
                   <strong>{userProfile?.displayName || getUserDisplayName()}</strong>
                   <span>{user.isAnonymous ? "Misafir Üye" : (userProfile?.profession || "Profilim")}</span>
                 </div>
-              </Link>
+              </button>
               <button
                 type="button"
                 onClick={() => {
@@ -291,19 +303,19 @@ export default function Navbar() {
               </button>
             </div>
           ) : (
-            <Link
-              href="/auth"
-              onClick={() => setSidebarOpen(false)}
+            <button
+              type="button"
+              onClick={() => {
+                setSidebarOpen(false);
+                router.push("/auth");
+              }}
               className="side-drawer-login-btn"
+              style={{ width: "100%", cursor: "pointer", border: "none", fontFamily: "inherit", fontSize: "14px" }}
             >
               <span>Giriş Yap veya Katıl</span>
               <ArrowRight size={16} />
-            </Link>
+            </button>
           )}
-
-          <p className="side-drawer-motto">
-            İnsanı anlamak, dünyayı keşfetmek.
-          </p>
         </div>
       </aside>
     </>
