@@ -35,7 +35,7 @@ export default function Home() {
       <section className="hero-fullscreen">
         {/* Ana Yazılar */}
         <div className="hero-content-center animate-fade-down">
-          <h1>İnsanı anlamak,<br />dünyayı vitrine çıkarmak.</h1>
+          <h1>İnsanı Anlamak,<br />Dünyayı Vitrine Çıkarmak.</h1>
           <p>
             Psikoloji, bilim, kültür ve hikayelerle zihninin farklı yönlerini keşfet.
           </p>
