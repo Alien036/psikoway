@@ -14,7 +14,8 @@ import {
   Film,
   Sparkles,
   Mail,
-  ChevronRight
+  ChevronRight,
+  Download
 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "../context/AuthContext";
@@ -163,8 +164,24 @@ export default function Navbar() {
           </Link>
         </div>
 
-        {/* SAĞ ALAN: Kullanıcı Profili veya Giriş Yap Butonu */}
-        <div className="header-right text-white" style={{ pointerEvents: "auto", position: "relative", zIndex: 9995 }}>
+        {/* SAĞ ALAN: Mobil İndir Butonu + Kullanıcı Profili veya Giriş Yap Butonu */}
+        <div className="header-right text-white" style={{ pointerEvents: "auto", position: "relative", zIndex: 9995, display: "flex", alignItems: "center", gap: "8px" }}>
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("psikoway-trigger-install"));
+              }
+            }}
+            className="nav-mobile-install-btn"
+            title="PsikoWay Uygulamasını Telefonuna İndir"
+            aria-label="Uygulamayı İndir"
+          >
+            <img src="/logo.png" alt="" className="nav-mobile-install-logo" />
+            <Download size={14} />
+            <span>Uygulamayı İndir</span>
+          </button>
+
           {user ? (
             <div className="user-nav-profile-container" style={{ position: "relative" }}>
               <button
@@ -345,6 +362,30 @@ export default function Navbar() {
               );
             })}
           </nav>
+
+          {/* MOBİL UYGULAMA İNDİRME KARTI (LOGOLU) */}
+          <div className="side-drawer-install-section">
+            <div className="side-drawer-section-label" style={{ marginTop: "18px" }}>MOBİL UYGULAMA</div>
+            <button
+              type="button"
+              onClick={() => {
+                setSidebarOpen(false);
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new CustomEvent("psikoway-trigger-install"));
+                }
+              }}
+              className="side-drawer-install-card"
+            >
+              <img src="/logo.png" alt="PsikoWay Logo" className="side-drawer-install-logo" />
+              <div className="side-drawer-install-info">
+                <strong>Telefonuna İndir</strong>
+                <span>Ana ekrana PsikoWay logosuyla ekle</span>
+              </div>
+              <span className="side-drawer-install-icon">
+                <Download size={16} />
+              </span>
+            </button>
+          </div>
         </div>
 
         <div className="side-drawer-footer">

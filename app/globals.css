@@ -9563,3 +9563,400 @@ img {
     -webkit-drag-and-drop-visual: none !important;
     -webkit-user-drag: none !important;
 }
+
+/* =========================================================================
+   PWA MOBİL UYGULAMA İNDİRME (ANA EKRANA EKLE) BARI, KARTI VE MODALI
+   ========================================================================= */
+
+/* Üst Navbar İndir Butonu */
+.nav-mobile-install-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(224, 184, 120, 0.22), rgba(196, 151, 90, 0.12));
+    border: 1px solid rgba(224, 184, 120, 0.45);
+    color: #fce7c8;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+    white-space: nowrap;
+}
+
+.nav-mobile-install-btn:hover {
+    border-color: #e0b878;
+    transform: translateY(-1px);
+}
+
+.nav-mobile-install-logo {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+    .nav-mobile-install-btn {
+        padding: 6px 10px;
+        font-size: 11.5px;
+    }
+    .nav-mobile-install-btn span {
+        display: none;
+    }
+}
+
+/* Sol Çekmece (Side Drawer) İndirme Kartı */
+.side-drawer-install-card {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, rgba(224, 184, 120, 0.16), rgba(30, 22, 16, 0.92));
+    border: 1px solid rgba(224, 184, 120, 0.4);
+    color: #ffffff;
+    cursor: pointer;
+    text-align: left;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.side-drawer-install-card:hover {
+    border-color: #e0b878;
+    transform: translateY(-1px);
+}
+
+.side-drawer-install-logo {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid rgba(224, 184, 120, 0.65);
+    flex-shrink: 0;
+}
+
+.side-drawer-install-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    min-width: 0;
+}
+
+.side-drawer-install-info strong {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #fce7c8;
+}
+
+.side-drawer-install-info span {
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.68);
+}
+
+.side-drawer-install-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: rgba(224, 184, 120, 0.2);
+    color: #e0b878;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Mobil Alt Yüzen İndirme Barı */
+.pwa-mobile-install-banner {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    z-index: 9990;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 11px 13px;
+    border-radius: 18px;
+    background: rgba(14, 11, 9, 0.96);
+    border: 1px solid rgba(224, 184, 120, 0.45);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.85), 0 0 20px rgba(224, 184, 120, 0.14);
+}
+
+.pwa-banner-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+}
+
+.pwa-banner-logo-wrap {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    padding: 2px;
+    background: linear-gradient(135deg, #e0b878, #8c6239);
+    flex-shrink: 0;
+}
+
+.pwa-banner-logo {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+}
+
+.pwa-banner-text {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+}
+
+.pwa-banner-text strong {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #ffffff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.pwa-banner-text span {
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.72);
+    line-height: 1.25;
+}
+
+.pwa-banner-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.pwa-banner-install-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 13px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #e0b878 0%, #c4975a 100%);
+    color: #0d0a07;
+    font-size: 12.5px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+}
+
+.pwa-banner-close-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+}
+
+/* Kurulum Rehberi Modalı */
+.pwa-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    background: rgba(0, 0, 0, 0.84);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+}
+
+.pwa-modal-card {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    border-radius: 24px;
+    background: #120e0c;
+    border: 1px solid rgba(224, 184, 120, 0.45);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.9);
+    padding: 26px 22px 22px;
+    color: #ffffff;
+    text-align: center;
+}
+
+.pwa-modal-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.pwa-modal-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.pwa-modal-logo-ring {
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    padding: 3px;
+    background: linear-gradient(135deg, #e0b878, #8c6239);
+    box-shadow: 0 8px 25px rgba(224, 184, 120, 0.28);
+    margin-bottom: 4px;
+}
+
+.pwa-modal-logo-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+}
+
+.pwa-modal-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(224, 184, 120, 0.14);
+    border: 1px solid rgba(224, 184, 120, 0.35);
+    color: #e0b878;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+.pwa-modal-header h3 {
+    font-size: 20px;
+    font-weight: 800;
+    margin: 2px 0 0;
+    color: #ffffff;
+}
+
+.pwa-modal-header p {
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.72);
+    margin: 0;
+}
+
+.pwa-modal-primary-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 13px 18px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #e0b878 0%, #c4975a 100%);
+    color: #0d0a07;
+    font-size: 14.5px;
+    font-weight: 800;
+    border: none;
+    cursor: pointer;
+    margin-bottom: 16px;
+}
+
+.pwa-steps-container {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 14px;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.pwa-step-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #e0b878;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.pwa-step-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.pwa-step-num {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(224, 184, 120, 0.2);
+    border: 1px solid rgba(224, 184, 120, 0.45);
+    color: #fce7c8;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.pwa-step-desc {
+    font-size: 13px;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, 0.86);
+}
+
+.pwa-install-success-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 18px 14px;
+    border-radius: 16px;
+    background: rgba(74, 222, 128, 0.1);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+    margin-bottom: 16px;
+}
+
+.pwa-modal-done-btn {
+    width: 100%;
+    padding: 11px 16px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* Uygulama zaten yüklüyse (standalone modda açıldıysa) indirme butonlarını gizle */
+@media (display-mode: standalone) {
+    .nav-mobile-install-btn,
+    .side-drawer-install-section,
+    .pwa-mobile-install-banner {
+        display: none !important;
+    }
+}
