@@ -32,9 +32,9 @@ public class MainActivity extends Activity {
     private ValueCallback<Uri[]> filePathCallback;
     private static final int FILE_CHOOSER_RESULT_CODE = 1001;
 
-    // Öncelik sırasıyla yerel geliştirme sunucusu ve canlı sunucu adresleri
+    // Canlı üretim (Vercel) sunucu adresi - Tüm genel kullanıcılar için doğrudan açılır
+    private static final String LIVE_SERVER_URL = "https://piskoway-main.vercel.app";
     private static final String LOCAL_SERVER_URL = "http://192.168.1.101:3000";
-    private static final String LIVE_SERVER_URL = "https://psikoway.vercel.app";
     private static final String PREFS_NAME = "PsikoWayPrefs";
     private static final String KEY_LAST_URL = "last_working_base_url";
 
@@ -70,7 +70,7 @@ public class MainActivity extends Activity {
         setContentView(rootLayout);
 
         configureWebView();
-        resolveAndLoadUrl();
+        webView.loadUrl(LIVE_SERVER_URL);
     }
 
     private void configureWebView() {
@@ -148,48 +148,6 @@ public class MainActivity extends Activity {
                 return true;
             }
         });
-    }
-
-    private void resolveAndLoadUrl() {
-        new Thread(() -> {
-            String targetUrl = LOCAL_SERVER_URL;
-            if (isReachable(LOCAL_SERVER_URL, 1800)) {
-                targetUrl = LOCAL_SERVER_URL;
-                saveLastUrl(targetUrl);
-            } else if (isReachable(LIVE_SERVER_URL, 2500)) {
-                targetUrl = LIVE_SERVER_URL;
-                saveLastUrl(targetUrl);
-            } else {
-                SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-                targetUrl = prefs.getString(KEY_LAST_URL, LOCAL_SERVER_URL);
-            }
-            final String finalUrl = targetUrl;
-            runOnUiThread(() -> webView.loadUrl(finalUrl));
-        }).start();
-    }
-
-    private boolean isReachable(String urlStr, int timeoutMs) {
-        HttpURLConnection conn = null;
-        try {
-            URL url = new URL(urlStr);
-            conn = (HttpURLConnection) url.openConnection();
-            conn.setConnectTimeout(timeoutMs);
-            conn.setReadTimeout(timeoutMs);
-            conn.setRequestMethod("HEAD");
-            int code = conn.getResponseCode();
-            return code >= 200 && code < 500;
-        } catch (Exception e) {
-            return false;
-        } finally {
-            if (conn != null) {
-                conn.disconnect();
-            }
-        }
-    }
-
-    private void saveLastUrl(String url) {
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        prefs.edit().putString(KEY_LAST_URL, url).apply();
     }
 
     @Override
