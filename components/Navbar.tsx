@@ -111,24 +111,35 @@ export default function Navbar() {
           boxShadow: "none",
           backdropFilter: "none",
           WebkitBackdropFilter: "none",
-          pointerEvents: "none",
+          pointerEvents: "auto",
         }}
       >
         {/* SOL ALAN: Üç Çizgi Hamburger Menü Butonu + Logo */}
-        <div className="header-left" style={{ pointerEvents: "auto" }}>
+        <div className="header-left" style={{ pointerEvents: "auto", position: "relative", zIndex: 9995 }}>
           <button
             type="button"
-            onClick={() => setSidebarOpen(true)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSidebarOpen((prev) => !prev);
+            }}
             className="side-menu-trigger-btn"
             aria-label="Gezinme Menüsünü Aç"
+            aria-expanded={sidebarOpen}
             title="Menü"
+            style={{
+              pointerEvents: "auto",
+              touchAction: "manipulation",
+              WebkitTapHighlightColor: "transparent",
+              position: "relative",
+              zIndex: 9996,
+            }}
           >
-            <div className="hamburger-bars">
+            <div className="hamburger-bars" style={{ pointerEvents: "none" }}>
               <span className="bar"></span>
               <span className="bar"></span>
               <span className="bar"></span>
             </div>
-            <span className="side-menu-trigger-text">Menü</span>
+            <span className="side-menu-trigger-text" style={{ pointerEvents: "none" }}>Menü</span>
           </button>
 
           <Link href="/" className="nav-logo" aria-label="PsikoWay">
@@ -145,7 +156,7 @@ export default function Navbar() {
         </div>
 
         {/* SAĞ ALAN: Kullanıcı Profili veya Giriş Yap Butonu */}
-        <div className="header-right text-white" style={{ pointerEvents: "auto" }}>
+        <div className="header-right text-white" style={{ pointerEvents: "auto", position: "relative", zIndex: 9995 }}>
           {user ? (
             <div className="user-nav-profile-container" style={{ position: "relative" }}>
               <button
@@ -234,12 +245,31 @@ export default function Navbar() {
         className={`side-drawer-backdrop ${sidebarOpen ? "open" : ""}`}
         onClick={() => setSidebarOpen(false)}
         aria-hidden="true"
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 99998,
+          opacity: sidebarOpen ? 1 : 0,
+          pointerEvents: sidebarOpen ? "auto" : "none",
+          visibility: sidebarOpen ? "visible" : "hidden",
+        }}
       />
 
       {/* SOL SLIDE DRAWER (HAFİFÇE SAĞA KAYARAK AÇILAN PANEL) */}
       <aside 
         className={`side-drawer-panel ${sidebarOpen ? "open" : ""}`}
         aria-label="Ana Gezinme Menüsü"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          bottom: 0,
+          zIndex: 99999,
+          transform: sidebarOpen ? "translate3d(0, 0, 0)" : "translate3d(-105%, 0, 0)",
+          WebkitTransform: sidebarOpen ? "translate3d(0, 0, 0)" : "translate3d(-105%, 0, 0)",
+          visibility: sidebarOpen ? "visible" : "hidden",
+          pointerEvents: sidebarOpen ? "auto" : "none",
+        }}
       >
         <div className="side-drawer-header">
           <button 

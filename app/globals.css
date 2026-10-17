@@ -129,7 +129,7 @@ body {
     border: none !important;
     border-bottom: none !important;
     box-shadow: none !important;
-    pointer-events: none !important;
+    pointer-events: auto !important;
 }
 
 .glass-header.scrolled {
@@ -144,7 +144,8 @@ body {
 }
 
 .glass-header .header-left,
-.glass-header .header-right {
+.glass-header .header-right,
+.glass-header .side-menu-trigger-btn {
     pointer-events: auto !important;
 }
 
@@ -298,13 +299,15 @@ body {
     -webkit-backdrop-filter: blur(6px);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-    z-index: 9998;
+    visibility: hidden;
+    transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.35s ease;
+    z-index: 99998 !important;
 }
 
 .side-drawer-backdrop.open {
-    opacity: 1;
-    pointer-events: auto;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    visibility: visible !important;
 }
 
 .side-drawer-panel {
@@ -315,7 +318,8 @@ body {
     width: 350px;
     max-width: 88vw;
     height: 100vh;
-    background: rgba(14, 18, 27, 0.96);
+    height: 100dvh;
+    background: rgba(14, 18, 27, 0.98);
     backdrop-filter: blur(32px);
     -webkit-backdrop-filter: blur(32px);
     border-right: 1px solid rgba(255, 255, 255, 0.12);
@@ -323,15 +327,22 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    z-index: 9999;
-    transform: translateX(-100%);
-    transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.38s ease;
+    z-index: 99999 !important;
+    transform: translate3d(-105%, 0, 0);
+    -webkit-transform: translate3d(-105%, 0, 0);
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.35s ease, box-shadow 0.35s ease;
     overflow-y: auto;
     padding: 24px;
+    will-change: transform;
 }
 
 .side-drawer-panel.open {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0) !important;
+    -webkit-transform: translate3d(0, 0, 0) !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
 }
 
 /* Drawer Başlığı */
