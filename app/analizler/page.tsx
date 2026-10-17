@@ -283,12 +283,12 @@ export default function AnalysisPage() {
             /* DİZİ & FİLM KATALOĞU IZGARASI - HER SIRADA 3 SİNEMATİK KAPAK KARTI */
             <div className="series-catalog-grid">
               {filteredSeriesList.map((series, idx) => {
-                const delayClass = `delay-${(idx % 6) + 1}`;
+                const animClass = idx < 6 ? `animate-fade-up delay-${(idx % 6) + 1}` : "";
                 const isMovie = series.id.endsWith("-movie");
                 return (
                   <article
                     key={series.id}
-                    className={`series-poster-card animate-fade-up ${delayClass}`}
+                    className={`series-poster-card ${animClass}`}
                     onClick={() => openSeriesDrawer(series)}
                     role="button"
                     tabIndex={0}
@@ -304,6 +304,8 @@ export default function AnalysisPage() {
                       src={series.coverImage}
                       alt={`${series.title} Kapak Afişi`}
                       className="series-card-bg-img"
+                      loading={idx < 4 ? "eager" : "lazy"}
+                      decoding="async"
                     />
 
                     {/* Sinematik Gradyan Katmanı */}
@@ -385,6 +387,8 @@ export default function AnalysisPage() {
                   src={selectedDrawerSeries.coverImage}
                   alt={selectedDrawerSeries.title}
                   className="bottom-sheet-series-thumb"
+                  loading="lazy"
+                  decoding="async"
                 />
                 <div className="bottom-sheet-series-text">
                   <div className="bottom-sheet-badge-group">
@@ -455,14 +459,15 @@ export default function AnalysisPage() {
                   <Link
                     key={char.id}
                     href={`/analizler/karakter/${char.id}`}
-                    className="analysis-poster-card animate-fade-up"
-                    style={{ animationDelay: `${(cIdx % 6) * 0.06}s` }}
+                    className={`analysis-poster-card ${cIdx < 6 ? "animate-fade-up" : ""}`}
                   >
                     {/* Karakter Portre Fotoğrafı */}
                     <img
                       src={char.image}
                       alt={`${char.characterName} - ${char.series}`}
                       className="poster-card-bg-img"
+                      loading="lazy"
+                      decoding="async"
                     />
 
                     {/* Sinematik Gradyan Katmanı */}

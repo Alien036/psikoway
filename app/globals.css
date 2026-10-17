@@ -9381,12 +9381,138 @@ html {
     }
 }
 
-/* --- Performans: Mobil için Ağır Animasyonları Azalt --- */
+/* =========================================================================
+   PERFORMANS & 60FPS KAYDIRMA OPTİMİZASYONU (MASAÜSTÜ & MOBİL)
+   İç içe 60+ katmanlı backdrop-filter: blur() ve sürekli çalışan animasyonların
+   GPU birleştirme (compositing) darboğazını tamamen ortadan kaldırır.
+   ========================================================================= */
+
+/* 1. Dev sayfa sarmalayıcılarında ve tekrarlayan kartlarda ağır GPU blur yerine
+      aynı görsel derinliği veren yüksek kontrastlı yarı-opak koyu yüzeyler kullan */
+.content-glass-section,
+.main-content,
+.forum-main-container {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+.forum-post-card,
+.forum-widget-card,
+.forum-controls-bar,
+.forum-category-pill,
+.forum-user-status-card,
+.service-card,
+.quiz-card,
+.series-poster-card,
+.series-card-genre-badge,
+.series-card-count-badge,
+.series-card-theme-box,
+.analysis-poster-card,
+.poster-series-badge,
+.poster-role-badge,
+.poster-archetype-box,
+.dossier-hero-card,
+.dossier-metric-card,
+.dossier-article-body,
+.dossier-insight-box,
+.contact-box,
+.contact-form-card,
+.profile-overview-card,
+.profile-edit-card,
+.category-card,
+.stat-pill,
+.trust-item,
+.analiz-filter-bar,
+.catalog-format-toggle-bar {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* Cam efektli kartların arka planlarını blur olmadan da şık ve okunaklı tut */
+.forum-post-card,
+.forum-widget-card,
+.forum-controls-bar,
+.service-card,
+.quiz-card,
+.contact-box,
+.contact-form-card,
+.profile-overview-card,
+.profile-edit-card,
+.dossier-metric-card,
+.dossier-article-body {
+    background: rgba(16, 14, 13, 0.94) !important;
+}
+
+.series-card-genre-badge,
+.series-card-count-badge,
+.poster-series-badge,
+.poster-role-badge {
+    background: rgba(12, 10, 9, 0.88) !important;
+}
+
+.series-card-theme-box,
+.poster-archetype-box {
+    background: rgba(14, 12, 10, 0.9) !important;
+}
+
+/* 2. 70 kartta aynı anda sonsuz çalışan ok zıplama animasyonunu durdur;
+      yalnızca fareyle kartın üzerine gelindiğinde (hover) çalıştır */
+.drawer-arrow-bounce {
+    animation: none !important;
+}
+
+@media (hover: hover) {
+    .series-poster-card:hover .drawer-arrow-bounce {
+        animation: arrowBounceUp 1.6s infinite ease-in-out !important;
+    }
+}
+
+/* 3. Arka plandaki devasa blur filtrelerini hafiflet (GPU fill-rate tasarrufu) */
+.dossier-hero-bg-img {
+    filter: blur(12px) brightness(0.38) !important;
+    transform: scale(1.06) !important;
+}
+
+.ambient-glow {
+    display: none !important;
+}
+
+/* 4. Ekran dışındaki (off-screen) kartların boyama maliyetini tarayıcı düzeyinde atla */
+.series-poster-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 440px;
+}
+
+.forum-post-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 260px;
+}
+
+/* 5. Mobil cihazlar için ek GPU ve dokunmatik kaydırma optimizasyonları */
 @media (max-width: 768px) {
-    /* Katmanlı backdrop-filter performans düşürür, sınırla */
-    .main-content {
-        backdrop-filter: blur(8px) !important;
-        -webkit-backdrop-filter: blur(8px) !important;
+    /* Mobilde sabit üst bar ve çekmece haricindeki tüm blur filtrelerini kapat */
+    .glass-header-bar {
+        backdrop-filter: blur(10px) !important;
+        -webkit-backdrop-filter: blur(10px) !important;
+        background: rgba(12, 10, 9, 0.92) !important;
+    }
+
+    .side-drawer-overlay,
+    .series-bottom-sheet-overlay,
+    .analiz-modal-backdrop {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        background: rgba(0, 0, 0, 0.82) !important;
+    }
+
+    /* Kart geçişlerini mobilde sadece transform/opacity ile sınırla */
+    .series-poster-card,
+    .analysis-poster-card,
+    .forum-post-card,
+    .service-card,
+    .quiz-card {
+        transition: transform 0.2s ease, border-color 0.2s ease !important;
+        will-change: auto !important;
     }
 
     /* Sonsuz animasyonları düşük güçlü modda devre dışı bırak */

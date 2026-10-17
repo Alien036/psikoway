@@ -781,9 +781,7 @@ export default function ForumPage() {
                     <article
                       key={post.id || `forum-post-${idx}`}
                       id={post.id}
-                      className={`forum-post-card animate-fade-up ${post.isPinned ? "is-pinned" : ""}`}
-                      style={{ animationDelay: `${idx * 0.05}s` }}
-                      onClick={() => recordPostView(post.id)}
+                      className={`forum-post-card ${idx < 5 ? "animate-fade-up" : ""} ${post.isPinned ? "is-pinned" : ""}`}
                     >
                       {/* Kart Üst Bilgisi (Yazar & Kategori & Zaman) */}
                       <div className="post-header-row">
