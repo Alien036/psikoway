@@ -30,6 +30,7 @@ export const metadata: Metadata = {
   title: "PsikoWay",
   applicationName: "PsikoWay",
   description: "Psikoloji, bilim, zihin analizleri, kokoloji testleri ve düşüncelerinizi özgürce paylaşabileceğiniz etkileşimli topluluk forumu.",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
