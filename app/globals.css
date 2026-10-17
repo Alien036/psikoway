@@ -123,20 +123,29 @@ body {
                 box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
                 border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
                 backdrop-filter 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-    background: rgba(9, 5, 3, 0.45);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    background: transparent !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: none !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
 }
 
 .glass-header.scrolled {
-    padding-top: 13px;
-    padding-bottom: 13px;
-    background: rgba(9, 5, 3, 0.92) !important;
-    backdrop-filter: blur(24px) saturate(180%) !important;
-    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
-    border-bottom: 1px solid rgba(224, 184, 120, 0.22) !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65) !important;
+    padding-top: 13px !important;
+    padding-bottom: 13px !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+.glass-header .header-left,
+.glass-header .header-right {
+    pointer-events: auto !important;
 }
 
 .logo {

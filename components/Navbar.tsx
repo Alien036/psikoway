@@ -85,10 +85,17 @@ export default function Navbar() {
           right: 0,
           width: "100%",
           zIndex: 9990,
+          background: "transparent",
+          border: "none",
+          borderBottom: "none",
+          boxShadow: "none",
+          backdropFilter: "none",
+          WebkitBackdropFilter: "none",
+          pointerEvents: "none",
         }}
       >
         {/* SOL ALAN: Üç Çizgi Hamburger Menü Butonu + Logo */}
-        <div className="header-left">
+        <div className="header-left" style={{ pointerEvents: "auto" }}>
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
@@ -118,7 +125,7 @@ export default function Navbar() {
         </div>
 
         {/* SAĞ ALAN: Kullanıcı Profili veya Giriş Yap Butonu */}
-        <div className="header-right text-white">
+        <div className="header-right text-white" style={{ pointerEvents: "auto" }}>
           {user ? (
             <div className="user-nav-profile-container" style={{ position: "relative" }}>
               <button
