@@ -120,7 +120,7 @@ export default function TestsPage() {
       {/* Toast Bildirimi */}
       {toastMessage && (
         <div
-          className="animate-fade-down"
+          className="forum-toast animate-fade-down"
           style={{
             position: "fixed",
             bottom: "30px",
@@ -157,7 +157,7 @@ export default function TestsPage() {
         {/* İSTATİSTİK ŞERİDİ */}
         {!activeTest && (
           <div
-            className="animate-fade-up delay-1"
+            className="test-stats-strip animate-fade-up delay-1"
             style={{
               display: "flex",
               justifyContent: "center",
@@ -250,6 +250,7 @@ export default function TestsPage() {
 
                 {/* Kategori Hapları */}
                 <div
+                  className="test-categories-bar"
                   style={{
                     display: "flex",
                     flexWrap: "wrap",
@@ -520,7 +521,7 @@ export default function TestsPage() {
                   {/* ======================================================== */}
                   {testResult.recommendedTherapy && (
                     <div
-                      className="animate-fade-up"
+                      className="test-recommended-therapy-card animate-fade-up"
                       style={{
                         margin: "32px 0 28px 0",
                         background: "linear-gradient(145deg, rgba(224, 184, 120, 0.12) 0%, rgba(26, 18, 14, 0.85) 100%)",
@@ -577,6 +578,7 @@ export default function TestsPage() {
                           Sizin İçin En Uygun Yöntem:
                         </span>
                         <h4
+                          className="test-therapy-title"
                           style={{
                             fontFamily: "'Playfair Display', serif",
                             fontSize: "28px",
@@ -600,7 +602,7 @@ export default function TestsPage() {
                           <strong style={{ display: "block", color: "#ffffff", fontSize: "13.5px", marginBottom: "10px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
                             🌿 Bu Terapi Sürecinde Elde Edeceğiniz Kazanımlar:
                           </strong>
-                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "10px" }}>
+                          <div className="test-benefits-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "10px" }}>
                             {testResult.recommendedTherapy.benefits.map((benefit, bIdx) => (
                               <div
                                 key={bIdx}
@@ -654,7 +656,7 @@ export default function TestsPage() {
                   {/* HEMEN RANDEVU AL BÖLÜMÜ (CALL TO ACTION)                 */}
                   {/* ======================================================== */}
                   <div
-                    className="animate-fade-up delay-1"
+                    className="test-cta-card animate-fade-up delay-1"
                     style={{
                       background: "radial-gradient(ellipse at top, rgba(224, 184, 120, 0.15), rgba(18, 12, 10, 0.95))",
                       border: "2px solid rgba(224, 184, 120, 0.65)",
@@ -685,6 +687,7 @@ export default function TestsPage() {
                     </div>
 
                     <h3
+                      className="test-cta-title"
                       style={{
                         fontFamily: "'Playfair Display', serif",
                         fontSize: "30px",
@@ -708,7 +711,7 @@ export default function TestsPage() {
                     </p>
 
                     {/* Ana Randevu Butonları */}
-                    <div style={{ display: "flex", gap: "14px", justifyContent: "center", flexWrap: "wrap", marginBottom: "20px" }}>
+                    <div className="test-cta-actions" style={{ display: "flex", gap: "14px", justifyContent: "center", flexWrap: "wrap", marginBottom: "20px" }}>
                       <Link
                         href={`/iletisim?terapi=${encodeURIComponent(testResult.recommendedTherapy?.name || "")}`}
                         className="btn-primary-solid"
@@ -735,6 +738,7 @@ export default function TestsPage() {
                         href={`https://wa.me/905523283646?text=${encodeURIComponent(`Merhaba PsikoWay, '${activeTest.title}' testini tamamladım. Test sonucuma göre önerilen '${testResult.recommendedTherapy?.name || "Bireysel Psikoterapi"}' için uzman psikologdan randevu almak istiyorum.`)}`}
                         target="_blank"
                         rel="noreferrer"
+                        className="test-whatsapp-cta-btn"
                         style={{
                           display: "inline-flex",
                           alignItems: "center",
@@ -763,7 +767,9 @@ export default function TestsPage() {
                         alignItems: "center",
                         gap: "8px",
                         fontSize: "13.5px",
-                        color: "rgba(255, 255, 255, 0.7)"
+                        color: "rgba(255, 255, 255, 0.7)",
+                        flexWrap: "wrap",
+                        justifyContent: "center"
                       }}
                     >
                       <Phone size={14} color="var(--gold-primary)" />
@@ -772,7 +778,7 @@ export default function TestsPage() {
                   </div>
 
                   {/* Sonuç Aksiyon Butonları (Tekrar Çöz, Paylaş, Diğer Testler) */}
-                  <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap", marginTop: "16px" }}>
+                  <div className="test-result-actions" style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap", marginTop: "16px" }}>
                     <button
                       type="button"
                       onClick={() => startTest(activeTest)}

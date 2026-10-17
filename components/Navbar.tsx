@@ -49,7 +49,10 @@ export default function Navbar() {
   // ESC tuşuna basıldığında menüyü kapat ve arka plan kaydırmasını yönet
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSidebarOpen(false);
+      if (e.key === "Escape") {
+        setSidebarOpen(false);
+        setUserDropdownOpen(false);
+      }
     };
     if (sidebarOpen) {
       window.addEventListener("keydown", handleKeyDown);
@@ -62,6 +65,23 @@ export default function Navbar() {
       document.body.style.overflow = "";
     };
   }, [sidebarOpen]);
+
+  // Kullanıcı açılır menüsü dışına tıklandığında kapat (özellikle mobil dokunmatik ekranlar için)
+  useEffect(() => {
+    if (!userDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && !target.closest(".user-nav-profile-container")) {
+        setUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [userDropdownOpen]);
 
   const [scrolled, setScrolled] = useState(false);
 

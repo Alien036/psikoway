@@ -379,7 +379,7 @@ export default function AuthPage() {
       <BackgroundVideo />
 
       <div className="auth-container">
-        <Link href="/" className="nav-logo" style={{ position: 'absolute', top: 30, left: 50 }}>
+        <Link href="/" className="nav-logo auth-top-logo" style={{ position: 'absolute', top: 30, left: 50 }}>
           <Image
             src="/logo.png"
             alt="PsikoWay Logo"

@@ -639,6 +639,81 @@ export default function AnalysisInteractions({
           white-space: pre-wrap;
           word-break: break-word;
         }
+
+        @media (max-width: 640px) {
+          .analysis-interactions-section {
+            margin-top: 1.5rem;
+            padding: 1.25rem 1rem;
+            border-radius: 14px;
+          }
+
+          .interactions-bar {
+            padding-bottom: 1rem;
+            margin-bottom: 1.25rem;
+            gap: 0.65rem;
+          }
+
+          .interactions-left {
+            gap: 0.5rem;
+            flex-wrap: wrap;
+          }
+
+          .interaction-btn {
+            padding: 0.55rem 0.95rem;
+            font-size: 0.82rem;
+            min-height: 40px;
+          }
+
+          .interaction-stat {
+            font-size: 0.82rem;
+            padding: 0.45rem 0.6rem;
+          }
+
+          .comments-header-title h3 {
+            font-size: 1.05rem;
+          }
+
+          .comments-header-sub {
+            font-size: 0.82rem;
+          }
+
+          .comment-input-card {
+            padding: 0.85rem;
+            margin-bottom: 1.25rem;
+          }
+
+          .guest-name-field {
+            max-width: 100%;
+            padding: 0.5rem 0.75rem;
+          }
+
+          .guest-name-input {
+            font-size: 16px;
+          }
+
+          .comment-textarea {
+            font-size: 16px;
+          }
+
+          .comment-actions-bar {
+            flex-wrap: wrap;
+            gap: 0.5rem;
+          }
+
+          .comment-submit-btn {
+            padding: 0.6rem 1rem;
+            min-height: 42px;
+          }
+
+          .comment-bubble-card {
+            padding: 0.85rem 0.95rem;
+          }
+
+          .comment-bubble-head {
+            flex-wrap: wrap;
+            gap: 0.35rem;
+          }
+        }
       `}</style>
     </section>
   );

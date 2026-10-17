@@ -1532,6 +1532,7 @@ export default function ForumPage() {
                 {crisisModalInfo.emergencyNumbers.map((item) => (
                   <div
                     key={item.number}
+                    className="crisis-emergency-item"
                     style={{
                       background: "rgba(255, 255, 255, 0.04)",
                       border: "1px solid rgba(255, 255, 255, 0.1)",
@@ -1540,25 +1541,28 @@ export default function ForumPage() {
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
+                      flexWrap: "wrap",
                       gap: "12px",
                     }}
                   >
-                    <div>
+                    <div style={{ flex: "1 1 180px" }}>
                       <strong style={{ color: "#ffffff", display: "block", fontSize: "15px" }}>{item.label}</strong>
                       <span style={{ fontSize: "12.5px", color: "rgba(255,255,255,0.6)" }}>{item.description}</span>
                     </div>
                     <a
                       href={`tel:${item.number}`}
+                      className="crisis-call-btn"
                       style={{
                         background: "#e0b878",
                         color: "#0f172a",
                         fontWeight: 700,
-                        padding: "8px 16px",
+                        padding: "10px 16px",
                         borderRadius: "8px",
                         textDecoration: "none",
                         fontSize: "14px",
                         display: "inline-flex",
                         alignItems: "center",
+                        justifyContent: "center",
                         gap: "6px",
                         whiteSpace: "nowrap",
                       }}
