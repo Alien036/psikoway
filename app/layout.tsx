@@ -27,24 +27,29 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "PsikoWay | İnsanı Anlamak, Dünyayı Keşfetmek & Psikoloji Forumu",
+  title: "PsikoWay",
+  applicationName: "PsikoWay",
   description: "Psikoloji, bilim, zihin analizleri, kokoloji testleri ve düşüncelerinizi özgürce paylaşabileceğiniz etkileşimli topluluk forumu.",
-  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "PsikoWay",
   },
+  other: {
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "application-name": "PsikoWay",
+    "apple-mobile-web-app-title": "PsikoWay",
+  },
   icons: {
     icon: [
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
-      { url: "/logo.png", sizes: "512x512", type: "image/png" },
     ],
     apple: [
       { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
     ],
-    shortcut: ["/logo.png"],
+    shortcut: ["/icon-192.png"],
   },
 };
 

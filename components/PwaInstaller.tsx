@@ -18,35 +18,61 @@ export default function PwaInstaller() {
   const [showBanner, setShowBanner] = useState(false);
   const [showGuideModal, setShowGuideModal] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [isLocalHttp, setIsLocalHttp] = useState(false);
   const [installedSuccess, setInstalledSuccess] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // 1. Service Worker kaydı
-    if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    const isHttpsOrLocalhost =
+      window.location.protocol === "https:" ||
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1";
+
+    setIsLocalHttp(!isHttpsOrLocalhost);
+
+    // ÖNEMLİ: Android Chrome'da yerel Wi-Fi IP'si (örn. http://192.168.1.101:3000) üzerinden
+    // girildiğinde sayfada <link rel="manifest"> varsa, Chrome Google Play WebAPK sunucusuna
+    // bağlanmaya çalışır ve yerel IP'ye dışarıdan erişilemediği için "Bu uygulama yüklenemez" hatası verir!
+    // Bu yüzden manifest ve Service Worker'ı yalnızca HTTPS (Vercel canlı site) veya localhost üzerinde aktif ediyoruz.
+    // Yerel IP'de ise <meta name="mobile-web-app-capable" content="yes"> ve 192x192 ikon sayesinde
+    // "Ana ekrana ekle" hatasız ve logolu olarak doğrudan ana ekrana eklenir!
+    if (isHttpsOrLocalhost) {
+      if (!document.querySelector('link[rel="manifest"]')) {
+        const link = document.createElement("link");
+        link.rel = "manifest";
+        link.href = "/manifest.json";
+        document.head.appendChild(link);
+      }
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+      }
+    } else {
+      const existingManifest = document.querySelector('link[rel="manifest"]');
+      if (existingManifest) {
+        existingManifest.remove();
+      }
     }
 
-    // 2. Zaten uygulama olarak (standalone) çalışıyor mu kontrol et
+    // Zaten uygulama olarak (standalone) çalışıyor mu kontrol et
     const checkStandalone =
       window.matchMedia("(display-mode: standalone)").matches ||
       (window.navigator as unknown as { standalone?: boolean }).standalone === true;
     setIsStandalone(checkStandalone);
 
-    // 3. iOS / iPhone tespiti
+    // iOS / iPhone tespiti
     const ua = window.navigator.userAgent.toLowerCase();
     const iosDevice = /iphone|ipad|ipod/.test(ua);
     setIsIOS(iosDevice);
 
-    // 4. Mobilde alt indirme barını göster (eğer daha önce kapatmadıysa ve yüklü değilse)
+    // Mobilde alt indirme barını göster (eğer daha önce kapatmadıysa ve yüklü değilse)
     const isMobileScreen = window.innerWidth <= 900 || /android|iphone|ipad|ipod/i.test(ua);
     const dismissed = sessionStorage.getItem("psikoway_pwa_banner_dismissed") === "1";
     if (isMobileScreen && !checkStandalone && !dismissed) {
       setShowBanner(true);
     }
 
-    // 5. Tarayıcı yerel kurulum istemini (beforeinstallprompt) yakala
+    // Tarayıcı yerel kurulum istemini (beforeinstallprompt) yakala
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -89,8 +115,6 @@ export default function PwaInstaller() {
         // Hata olursa rehber modalını aç
       }
     }
-    // Doğrudan prompt desteklenmiyorsa (iOS Safari veya yerel ağ HTTP bağlantısı)
-    // logolu kurulum penceresini aç
     setShowGuideModal(true);
   }, [deferredPrompt]);
 
@@ -177,7 +201,7 @@ export default function PwaInstaller() {
               </span>
               <h3>PsikoWay&apos;i Telefonuna İndir</h3>
               <p>
-                Uygulama mağazasına gerek kalmadan PsikoWay logosuyla ana ekranınıza ekleyin ve tam ekran hızında kullanın.
+                PsikoWay logosuyla ana ekranınıza ekleyin ve tam ekran uygulama olarak anında açın.
               </p>
             </div>
 
@@ -228,7 +252,7 @@ export default function PwaInstaller() {
                       <div className="pwa-step-item">
                         <span className="pwa-step-num">1</span>
                         <div className="pwa-step-desc">
-                          Tarayıcınızın sağ üst köşesindeki <strong>Menü ( üç nokta )</strong>{" "}
+                          Tarayıcınızın sağ üst köşesindeki <strong>Menü ( üç nokta ⋮ )</strong>{" "}
                           <MoreVertical size={15} style={{ display: "inline", verticalAlign: "middle", color: "#e0b878" }} />{" "}
                           simgesine dokunun.
                         </div>
@@ -236,8 +260,13 @@ export default function PwaInstaller() {
                       <div className="pwa-step-item">
                         <span className="pwa-step-num">2</span>
                         <div className="pwa-step-desc">
-                          Menüden <strong>&ldquo;Uygulamayı yükle&rdquo;</strong> veya{" "}
-                          <strong>&ldquo;Ana ekrana ekle&rdquo;</strong> seçeneğine dokunup onaylayın.
+                          Menüden <strong>&ldquo;Ana ekrana ekle&rdquo;</strong>{" "}
+                          {!isLocalHttp && (
+                            <>
+                              veya <strong>&ldquo;Uygulamayı yükle&rdquo;</strong>{" "}
+                            </>
+                          )}
+                          seçeneğine dokunup <strong>Ekle</strong> deyin.
                         </div>
                       </div>
                     </>
