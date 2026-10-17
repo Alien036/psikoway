@@ -8108,3 +8108,706 @@ html {
     visibility: hidden !important;
     overflow: hidden !important;
 }
+
+/* ==========================================================================
+   GENİŞLETİLMİŞ MOBİL OPTİMİZASYON — TELEFON KULLANICILARI
+   Tüm sayfalar için kapsamlı dokunma, düzen ve okunabilirlik iyileştirmeleri
+   ========================================================================== */
+
+/* --- iOS Güvenli Alan (Safe Area / Notch / Dynamic Island) Desteği --- */
+:root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+}
+
+/* --- Dokunma Optimize Edilmiş Genel Stiller --- */
+@media (hover: none) and (pointer: coarse) {
+    /* Dokunma cihazlarında hover efektleri kaldır (parmak takılması önler) */
+    .category-card:hover {
+        transform: none !important;
+    }
+
+    .side-drawer-nav-item:hover {
+        transform: none !important;
+    }
+
+    .analiz-option-card:hover {
+        transform: none !important;
+    }
+
+    /* Tüm tıklanabilir öğeler için minimum 44px dokunma hedefi (Apple HIG) */
+    .action-btn,
+    .side-drawer-close-btn,
+    .side-menu-trigger-btn,
+    .btn-primary-solid,
+    .btn-white-outline,
+    .btn-white-large,
+    .side-drawer-login-btn,
+    .side-drawer-logout-btn,
+    .forum-category-pill,
+    .side-drawer-nav-item {
+        min-height: 44px !important;
+    }
+
+    /* Dokunma geri bildirimi — active durumunda hafif karartma */
+    .btn-primary-solid:active,
+    .btn-white-outline:active,
+    .btn-white-large:active,
+    .category-card:active,
+    .side-drawer-nav-item:active,
+    .analiz-option-card:active {
+        opacity: 0.82 !important;
+        transform: scale(0.98) !important;
+        transition: opacity 0.1s ease, transform 0.1s ease !important;
+    }
+}
+
+/* --- Ana Sayfa Hero Bölümü Mobil --- */
+@media (max-width: 768px) {
+    .hero-content-center h1 {
+        font-size: clamp(2rem, 8vw, 3.5rem) !important;
+        line-height: 1.15 !important;
+        margin-bottom: 16px !important;
+        padding: 0 4px !important;
+    }
+
+    .hero-content-center p {
+        font-size: 15px !important;
+        margin-bottom: 28px !important;
+        padding: 0 8px !important;
+    }
+
+    .hero-content-center {
+        padding: 0 16px !important;
+        margin-top: -30px !important;
+    }
+
+    .hero-actions-center {
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 12px !important;
+        align-items: stretch !important;
+    }
+
+    .hero-actions-center > * {
+        width: 100% !important;
+        justify-content: center !important;
+        text-align: center !important;
+    }
+
+    .btn-primary-solid {
+        padding: 14px 20px !important;
+        font-size: 15px !important;
+        border-radius: 14px !important;
+    }
+
+    .live-stats-glass {
+        justify-content: center !important;
+        font-size: 13px !important;
+        padding: 10px 18px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-content-center h1 {
+        font-size: clamp(1.7rem, 7.5vw, 2.5rem) !important;
+    }
+}
+
+/* --- Karakter Analiz Sayfası (Dossier) Mobil --- */
+@media (max-width: 768px) {
+    .character-dossier-page {
+        padding: 0 !important;
+    }
+
+    .dossier-breadcrumb-bar {
+        flex-direction: column !important;
+        gap: 8px !important;
+        padding: 14px 16px !important;
+        align-items: flex-start !important;
+    }
+
+    .dossier-breadcrumbs {
+        font-size: 11px !important;
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+    }
+
+    .dossier-back-btn {
+        font-size: 13px !important;
+        padding: 8px 12px !important;
+        min-height: 40px !important;
+    }
+
+    .dossier-hero-card {
+        border-radius: 0 0 20px 20px !important;
+        margin: 0 !important;
+    }
+
+    .dossier-hero-inner {
+        flex-direction: column !important;
+        padding: 20px 16px !important;
+        gap: 16px !important;
+        align-items: flex-start !important;
+    }
+
+    .dossier-hero-avatar-wrap {
+        width: 90px !important;
+        height: 90px !important;
+        border-radius: 16px !important;
+    }
+
+    .dossier-hero-avatar {
+        width: 90px !important;
+        height: 90px !important;
+        border-radius: 16px !important;
+    }
+
+    .dossier-hero-titles {
+        flex: 1 !important;
+        width: 100% !important;
+    }
+
+    .dossier-hero-name {
+        font-size: clamp(1.5rem, 6vw, 2.2rem) !important;
+        line-height: 1.2 !important;
+    }
+
+    .dossier-hero-series {
+        font-size: 13px !important;
+    }
+
+    .dossier-hero-meta-tags {
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+    }
+
+    .dossier-meta-tag {
+        font-size: 11px !important;
+        padding: 4px 10px !important;
+    }
+
+    .dossier-personality-grid,
+    .dossier-stats-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+    }
+
+    .dossier-main-layout {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+        padding: 16px !important;
+    }
+
+    .dossier-article-body {
+        font-size: 14.5px !important;
+        line-height: 1.7 !important;
+    }
+
+    .dossier-section-card {
+        padding: 18px 14px !important;
+        border-radius: 16px !important;
+        margin-bottom: 14px !important;
+    }
+
+    .dossier-section-title {
+        font-size: 1.1rem !important;
+    }
+
+    .dossier-quote-block {
+        padding: 16px 14px !important;
+        margin: 16px 0 !important;
+    }
+
+    .dossier-quote-block blockquote {
+        font-size: 15px !important;
+    }
+
+    .related-characters-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+    }
+
+    .related-char-card {
+        padding: 12px 10px !important;
+        border-radius: 12px !important;
+    }
+
+    .related-char-avatar {
+        width: 54px !important;
+        height: 54px !important;
+    }
+
+    .related-char-name {
+        font-size: 13px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .dossier-personality-grid,
+    .dossier-stats-grid {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    .related-characters-grid {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    .dossier-hero-name {
+        font-size: clamp(1.3rem, 5.5vw, 1.8rem) !important;
+    }
+}
+
+/* --- Analizler (Dizi/Film) Listesi Sayfası Mobil --- */
+@media (max-width: 768px) {
+    .series-grid,
+    .analysis-poster-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+    }
+
+    .series-poster-card,
+    .analysis-poster-card {
+        border-radius: 14px !important;
+    }
+
+    .series-bottom-sheet-drawer {
+        border-radius: 20px 20px 0 0 !important;
+        max-height: 85vh !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding: 20px 16px !important;
+        padding-bottom: calc(20px + var(--safe-bottom)) !important;
+    }
+
+    .series-bottom-sheet-drawer h2 {
+        font-size: 1.4rem !important;
+    }
+
+    .character-grid-in-drawer {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+    }
+
+    .char-mini-card {
+        padding: 12px 10px !important;
+        border-radius: 12px !important;
+    }
+
+    .series-search-bar {
+        padding: 10px 14px !important;
+        font-size: 14px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .series-grid,
+    .analysis-poster-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+    }
+}
+
+/* --- Testler Sayfası Mobil --- */
+@media (max-width: 768px) {
+    .tests-grid {
+        grid-template-columns: 1fr !important;
+        gap: 14px !important;
+    }
+
+    .test-card {
+        padding: 20px 16px !important;
+        border-radius: 16px !important;
+    }
+
+    .test-card-title {
+        font-size: 17px !important;
+    }
+
+    .test-question-card {
+        padding: 20px 16px !important;
+        border-radius: 18px !important;
+    }
+
+    .test-options-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    .test-option-btn {
+        padding: 14px 16px !important;
+        font-size: 14px !important;
+        min-height: 52px !important;
+        border-radius: 12px !important;
+    }
+
+    .test-progress-bar-wrap {
+        margin-bottom: 16px !important;
+    }
+
+    .test-result-card {
+        padding: 24px 16px !important;
+        border-radius: 20px !important;
+    }
+
+    .test-result-title {
+        font-size: 1.4rem !important;
+    }
+
+    .test-result-score {
+        font-size: 3rem !important;
+    }
+
+    .test-result-bars-list {
+        gap: 12px !important;
+    }
+}
+
+/* --- Hizmetler Sayfası Mobil --- */
+@media (max-width: 768px) {
+    .services-grid,
+    .hizmet-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+
+    .service-card,
+    .hizmet-card {
+        padding: 24px 18px !important;
+        border-radius: 18px !important;
+    }
+
+    .service-card-icon {
+        width: 52px !important;
+        height: 52px !important;
+    }
+
+    .service-card-title,
+    .hizmet-card-title {
+        font-size: 18px !important;
+    }
+
+    .therapist-card {
+        flex-direction: column !important;
+        align-items: center !important;
+        text-align: center !important;
+        padding: 24px 18px !important;
+    }
+
+    .therapist-photo {
+        width: 90px !important;
+        height: 90px !important;
+        margin-bottom: 12px !important;
+    }
+
+    .pricing-cards-row {
+        flex-direction: column !important;
+        gap: 14px !important;
+    }
+
+    .pricing-card {
+        padding: 24px 18px !important;
+        border-radius: 18px !important;
+    }
+}
+
+/* --- Analiz Etkileşim Butonları (Beğeni, Kaydet vb.) Mobil --- */
+@media (max-width: 768px) {
+    .analysis-interactions-bar {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        padding: 12px 14px !important;
+    }
+
+    .interaction-btn {
+        padding: 8px 12px !important;
+        font-size: 13px !important;
+        min-height: 40px !important;
+        border-radius: 10px !important;
+    }
+}
+
+/* --- Yatay Kaydırma Gerektiren Elemanlar (Touch Scroll) --- */
+@media (max-width: 768px) {
+    .forum-category-pills-scroll,
+    .admin-tabs-list,
+    .horizontal-scroll-wrap,
+    .tags-scroll-row {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
+        scroll-snap-type: x proximity !important;
+        padding-bottom: 4px !important;
+    }
+
+    .forum-category-pills-scroll::-webkit-scrollbar,
+    .admin-tabs-list::-webkit-scrollbar,
+    .horizontal-scroll-wrap::-webkit-scrollbar,
+    .tags-scroll-row::-webkit-scrollbar {
+        display: none !important;
+    }
+
+    /* Kaydırılabilir öğeler snap noktaları */
+    .forum-category-pill,
+    .admin-tab-btn {
+        scroll-snap-align: start !important;
+        flex-shrink: 0 !important;
+    }
+}
+
+/* --- Modal / Drawer Bottom Sheet (Mobilde Tam Ekran Alttan Açılır) --- */
+@media (max-width: 768px) {
+    .analiz-modal-backdrop {
+        align-items: flex-end !important;
+        padding: 0 !important;
+    }
+
+    .analiz-modal-window {
+        border-radius: 24px 24px 0 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 28px 18px !important;
+        padding-bottom: calc(28px + var(--safe-bottom)) !important;
+        max-height: 92vh !important;
+        overflow-y: auto !important;
+    }
+
+    .analiz-modal-header h3 {
+        font-size: 1.4rem !important;
+    }
+
+    .analiz-option-card {
+        padding: 14px 14px !important;
+        gap: 14px !important;
+    }
+
+    .analiz-option-icon-box {
+        width: 44px !important;
+        height: 44px !important;
+    }
+
+    .analiz-option-info h5 {
+        font-size: 16px !important;
+    }
+}
+
+/* --- Auth (Giriş) Sayfası Mobil --- */
+@media (max-width: 768px) {
+    .auth-container {
+        align-items: flex-end !important;
+        padding: 0 !important;
+    }
+
+    .auth-card {
+        border-radius: 24px 24px 0 0 !important;
+        padding: 36px 20px !important;
+        padding-bottom: calc(36px + var(--safe-bottom)) !important;
+        max-width: 100% !important;
+        border-left: none !important;
+        border-right: none !important;
+        border-bottom: none !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .auth-card {
+        padding: 28px 16px !important;
+        padding-bottom: calc(28px + var(--safe-bottom)) !important;
+    }
+
+    .auth-card h2 {
+        font-size: 24px !important;
+    }
+}
+
+/* --- Footer Mobil --- */
+@media (max-width: 768px) {
+    footer {
+        padding-bottom: calc(20px + var(--safe-bottom)) !important;
+    }
+}
+
+/* --- iOS Safari için Alt Çubuk (Tab Bar) Alanı --- */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .side-drawer-panel {
+        padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
+    }
+
+    .side-drawer-footer {
+        padding-bottom: env(safe-area-inset-bottom) !important;
+    }
+}
+
+/* --- Yüksek Çözünürlüklü Küçük Ekranlar (iPhone 14 Pro Max, Samsung S Ultra vb.) --- */
+@media (max-width: 430px) {
+    .hero-content-center h1 {
+        font-size: clamp(1.6rem, 7vw, 2.2rem) !important;
+    }
+
+    .category-card {
+        height: 240px !important;
+    }
+
+    .category-overlay h4 {
+        font-size: 22px !important;
+    }
+
+    .category-overlay p {
+        font-size: 13px !important;
+    }
+
+    .glass-header {
+        padding: 10px 14px !important;
+    }
+
+    .nav-logo-img {
+        width: 38px !important;
+        height: 38px !important;
+    }
+
+    .page-title {
+        font-size: 1.5rem !important;
+    }
+
+    .side-drawer-panel {
+        width: 300px !important;
+        padding: 18px !important;
+    }
+}
+
+/* --- Çok Küçük Ekranlar (iPhone SE 1. nesil, 320px) --- */
+@media (max-width: 360px) {
+    .hero-content-center h1 {
+        font-size: 1.5rem !important;
+    }
+
+    .hero-content-center p {
+        font-size: 13.5px !important;
+    }
+
+    .btn-primary-solid,
+    .btn-white-outline,
+    .btn-white-large {
+        font-size: 14px !important;
+        padding: 12px 16px !important;
+    }
+
+    .category-card {
+        height: 220px !important;
+    }
+
+    .side-drawer-panel {
+        width: 280px !important;
+    }
+
+    .nav-brand-title {
+        display: none !important;
+    }
+}
+
+/* --- Landscape Mod Telefon (Yatay Ekran) --- */
+@media (max-width: 900px) and (orientation: landscape) {
+    .hero-fullscreen {
+        min-height: 100svh !important;
+    }
+
+    .hero-content-center {
+        margin-top: 0 !important;
+        padding-top: 60px !important;
+        padding-bottom: 20px !important;
+    }
+
+    .hero-content-center h1 {
+        font-size: clamp(1.6rem, 5vw, 2.8rem) !important;
+        margin-bottom: 12px !important;
+    }
+
+    .hero-content-center p {
+        font-size: 14px !important;
+        margin-bottom: 20px !important;
+    }
+
+    .hero-actions-center {
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+    }
+
+    .hero-actions-center > * {
+        width: auto !important;
+    }
+
+    .auth-container {
+        align-items: center !important;
+    }
+
+    .auth-card {
+        border-radius: 24px !important;
+        max-width: 420px !important;
+        padding: 28px 28px !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+
+    .side-drawer-panel {
+        width: 300px !important;
+    }
+}
+
+/* --- Performans: Mobil için Ağır Animasyonları Azalt --- */
+@media (max-width: 768px) {
+    /* Katmanlı backdrop-filter performans düşürür, sınırla */
+    .main-content {
+        backdrop-filter: blur(8px) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
+    }
+
+    /* Sonsuz animasyonları düşük güçlü modda devre dışı bırak */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+}
+
+/* --- Kaydırma Sürtünmesi Yok (Momentum Scroll) --- */
+@media (max-width: 768px) {
+    .side-drawer-panel,
+    .forum-layout-main,
+    .content-glass-section,
+    .analiz-modal-window,
+    .series-bottom-sheet-drawer {
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior: contain !important;
+    }
+}
+
+/* --- Metin Seçimini Kapat (Butonlar ve İkonlar) --- */
+.action-btn,
+.side-drawer-nav-item,
+.forum-category-pill,
+.btn-primary-solid,
+.btn-white-outline,
+.btn-white-large,
+.side-drawer-login-btn,
+.side-drawer-close-btn,
+.side-menu-trigger-btn,
+.hamburger-bars,
+.side-drawer-logout-btn,
+.analiz-option-card,
+.interaction-btn {
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+}
+
+/* --- Resim Kaymamasını Önleme --- */
+img {
+    -webkit-drag-and-drop-visual: none !important;
+    -webkit-user-drag: none !important;
+}
