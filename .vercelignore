@@ -1,0 +1,10 @@
+*.zip
+*.tar.gz
+piskoway-tam-proje.zip
+piskoway-main
+node_modules
+.next
+.git
+.vscode
+.idea
+*.log
