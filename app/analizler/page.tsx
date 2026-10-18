@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import BackgroundVideo from "../../components/BackgroundVideo";
@@ -10,7 +11,7 @@ import {
   CHARACTER_ANALYSES, 
   SeriesItem, 
   CharacterSummaryItem
-} from "../../lib/analyses-data";
+} from "../../lib/catalog-lite";
 import { 
   Sparkles, 
   Clock, 
@@ -30,6 +31,7 @@ import {
 } from "lucide-react";
 
 export default function AnalysisPage() {
+  const router = useRouter();
   const [seriesList] = useState<SeriesItem[]>(SERIES_LIST);
   const [characterList] = useState<CharacterSummaryItem[]>(CHARACTER_ANALYSES);
 
@@ -38,6 +40,61 @@ export default function AnalysisPage() {
   const [mediaType, setMediaType] = useState<"all" | "movies" | "series">("all");
   const [selectedGenre, setSelectedGenre] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // Bir dizinin karakter makalelerini arka planda otomatik önbelleğe yükle
+  const prefetchSeriesCharacters = useCallback(
+    (series: SeriesItem) => {
+      const chars = characterList.filter((c) => c.seriesId === series.id);
+      const urls: string[] = [];
+
+      chars.forEach((char, idx) => {
+        const url = `/analizler/karakter/${char.id}`;
+        urls.push(url);
+        setTimeout(() => {
+          try {
+            router.prefetch(url);
+          } catch {}
+          if (char.image) {
+            const img = new Image();
+            img.decoding = "async";
+            img.src = char.image;
+          }
+        }, idx * 70);
+      });
+
+      if (
+        typeof navigator !== "undefined" &&
+        "serviceWorker" in navigator &&
+        navigator.serviceWorker.controller &&
+        urls.length > 0
+      ) {
+        try {
+          navigator.serviceWorker.controller.postMessage({
+            type: "PREFETCH_ARTICLES",
+            urls,
+          });
+        } catch {}
+      }
+    },
+    [characterList, router]
+  );
+
+  // Sayfa açıldığında ilk sıralardaki popüler dizilerin ana karakter makalelerini arka planda sessizce hazırla
+  useEffect(() => {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const topCharacters = characterList.filter((c) => c.role === "main").slice(0, 14);
+
+    topCharacters.forEach((char, idx) => {
+      const t = setTimeout(() => {
+        try {
+          router.prefetch(`/analizler/karakter/${char.id}`);
+        } catch {}
+      }, 300 + idx * 220);
+      timers.push(t);
+    });
+
+    return () => timers.forEach(clearTimeout);
+  }, [characterList, router]);
 
   // ESC tuşuna basınca çekmeceyi (drawer) kapat
   useEffect(() => {
@@ -129,6 +186,7 @@ export default function AnalysisPage() {
   const openSeriesDrawer = (series: SeriesItem) => {
     setSelectedDrawerSeries(series);
     setDrawerRoleFilter("all");
+    prefetchSeriesCharacters(series);
   };
 
   return (
@@ -283,13 +341,15 @@ export default function AnalysisPage() {
             /* DİZİ & FİLM KATALOĞU IZGARASI - HER SIRADA 3 SİNEMATİK KAPAK KARTI */
             <div className="series-catalog-grid">
               {filteredSeriesList.map((series, idx) => {
-                const animClass = idx < 6 ? `animate-fade-up delay-${(idx % 6) + 1}` : "";
+                const animClass = idx < 6 ? `animate-fade-up` : "";
                 const isMovie = series.id.endsWith("-movie");
                 return (
                   <article
                     key={series.id}
                     className={`series-poster-card ${animClass}`}
                     onClick={() => openSeriesDrawer(series)}
+                    onTouchStart={() => prefetchSeriesCharacters(series)}
+                    onMouseEnter={() => prefetchSeriesCharacters(series)}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => {
@@ -304,7 +364,7 @@ export default function AnalysisPage() {
                       src={series.coverImage}
                       alt={`${series.title} Kapak Afişi`}
                       className="series-card-bg-img"
-                      loading={idx < 4 ? "eager" : "lazy"}
+                      loading={idx < 9 ? "eager" : "lazy"}
                       decoding="async"
                     />
 
@@ -320,7 +380,7 @@ export default function AnalysisPage() {
                           {series.genre}
                         </span>
                         <span className="series-card-count-badge">
-                          {series.characterCount} Karakter Analizi
+                          {series.characterCount} Analiz
                         </span>
                       </div>
 
@@ -344,8 +404,8 @@ export default function AnalysisPage() {
                         {/* Tıklama Aksiyon Çubuğu */}
                         <div className="series-card-action-bar">
                           <span className="series-open-drawer-btn">
-                            <ChevronUp size={16} className="drawer-arrow-bounce" />
-                            <span>Karakterleri İncele</span>
+                            <ChevronUp size={14} className="drawer-arrow-bounce" />
+                            <span>Karakterler</span>
                           </span>
                           <span className="series-card-chars-hint">
                             {isMovie ? "Kilit Karakterler" : "Ana & Yan Roller"}
@@ -387,7 +447,7 @@ export default function AnalysisPage() {
                   src={selectedDrawerSeries.coverImage}
                   alt={selectedDrawerSeries.title}
                   className="bottom-sheet-series-thumb"
-                  loading="lazy"
+                  loading="eager"
                   decoding="async"
                 />
                 <div className="bottom-sheet-series-text">
@@ -452,21 +512,23 @@ export default function AnalysisPage() {
               </div>
             </div>
 
-            {/* Çekmece Gövdesi: 3 Sütunlu Karakter Poster Kartları Izgarası */}
+            {/* Çekmece Gövdesi: Karakter Poster Kartları Izgarası */}
             <div className="bottom-sheet-body">
               <div className="bottom-sheet-characters-grid">
-                {drawerCharacters.map((char, cIdx) => (
+                {drawerCharacters.map((char) => (
                   <Link
                     key={char.id}
                     href={`/analizler/karakter/${char.id}`}
-                    className={`analysis-poster-card ${cIdx < 6 ? "animate-fade-up" : ""}`}
+                    prefetch={true}
+                    onTouchStart={() => router.prefetch(`/analizler/karakter/${char.id}`)}
+                    className="analysis-poster-card"
                   >
                     {/* Karakter Portre Fotoğrafı */}
                     <img
                       src={char.image}
                       alt={`${char.characterName} - ${char.series}`}
                       className="poster-card-bg-img"
-                      loading="lazy"
+                      loading="eager"
                       decoding="async"
                     />
 

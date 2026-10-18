@@ -148,3 +148,4 @@ Veritabanı kuralları `firestore.rules` dosyasında sıkı bir şekilde tanıml
 - Yasaklı (banned) kullanıcıların yazma yetkileri Firestore seviyesinde engellenir.
 - İletişim mesajları yalnızca anonim oluşturulabilir; yalnızca yetkili adminler okuyabilir.
 - Moderasyon alarmları ve yönetici alanları uçtan uca korunmaktadır.
+

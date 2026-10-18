@@ -12,6 +12,7 @@ import {
   CharacterAnalysisArticle 
 } from "../../../../lib/analyses-data";
 import AnalysisInteractions from "../../../../components/AnalysisInteractions";
+import ArticlePrefetcher from "../../../../components/ArticlePrefetcher";
 import { 
   ArrowLeft, 
   Clock, 
@@ -52,10 +53,34 @@ export default async function CharacterDetailPage({ params }: PageProps) {
   const relatedCharacters = await getRelatedCharacters(character.seriesId, character.id);
   const seriesInfo = await getSeriesById(character.seriesId);
 
+  // Mevcut makale okunurken arka planda otomatik yüklenecek sıradaki makaleleri belirle
+  const currentIdx = CHARACTER_ANALYSES.findIndex((c) => c.id === character.id);
+  const nextBatchIds: string[] = [];
+  if (currentIdx !== -1) {
+    for (let i = 1; i <= 18; i++) {
+      const item = CHARACTER_ANALYSES[(currentIdx + i) % CHARACTER_ANALYSES.length];
+      if (item && item.id !== character.id) {
+        nextBatchIds.push(item.id);
+      }
+    }
+  }
+
+  const nextArticleChar =
+    relatedCharacters[0] ||
+    (currentIdx !== -1
+      ? CHARACTER_ANALYSES[(currentIdx + 1) % CHARACTER_ANALYSES.length]
+      : null);
+
   return (
     <div className="page-wrapper">
       <BackgroundVideo />
       <Navbar />
+      <ArticlePrefetcher
+        currentId={character.id}
+        relatedIds={relatedCharacters.map((c) => c.id)}
+        relatedImages={relatedCharacters.map((c) => c.image)}
+        nextBatchIds={nextBatchIds}
+      />
 
       <main className="character-dossier-page">
         <div className="content-container">
@@ -138,7 +163,7 @@ export default async function CharacterDetailPage({ params }: PageProps) {
           </section>
 
           {/* Psikolojik Profil Göstergeleri (Metrik Kartları) */}
-          <section className="dossier-metrics-grid animate-fade-up delay-1">
+          <section className="dossier-metrics-grid animate-fade-up">
             <div className="dossier-metric-card">
               <div className="dossier-metric-header">
                 <BrainCircuit size={18} color="#e0b878" />
@@ -186,7 +211,7 @@ export default async function CharacterDetailPage({ params }: PageProps) {
 
           {/* İkonik Karakter Sözü / Repliği */}
           {character.fullContent.quote && (
-            <section className="dossier-quote-section animate-fade-up delay-2">
+            <section className="dossier-quote-section animate-fade-up">
               <Quote size={28} color="#e0b878" className="dossier-quote-icon" />
               <blockquote className="dossier-quote-text">
                 &ldquo;{character.fullContent.quote.text}&rdquo;
@@ -200,7 +225,7 @@ export default async function CharacterDetailPage({ params }: PageProps) {
           )}
 
           {/* Derinlemesine Klinik Vaka İncelemesi (Makale Gövdesi) */}
-          <section className="dossier-article-body animate-fade-up delay-3">
+          <section className="dossier-article-body animate-fade-up">
             <h2 className="dossier-section-title">
               <span>Psikanalitik Çözümleme &amp; Karakter Haritası</span>
             </h2>
@@ -237,6 +262,37 @@ export default async function CharacterDetailPage({ params }: PageProps) {
               </div>
             </div>
 
+            {/* Sıradaki Makale Hızlı Geçiş Kartı (Arka Planda Otomatik Hazırlanır) */}
+            {nextArticleChar && (
+              <Link
+                href={`/analizler/karakter/${nextArticleChar.id}`}
+                prefetch={true}
+                className="dossier-next-article-card"
+              >
+                <div className="dossier-next-article-left">
+                  <img
+                    src={nextArticleChar.image}
+                    alt={nextArticleChar.characterName}
+                    className="dossier-next-article-thumb"
+                    loading="eager"
+                    decoding="async"
+                  />
+                  <div className="dossier-next-article-info">
+                    <span className="dossier-next-article-badge">
+                      <Sparkles size={12} />
+                      <span>Sıradaki Makale • Arka Planda Hazırlandı</span>
+                    </span>
+                    <h4>{nextArticleChar.characterName} — {nextArticleChar.series}</h4>
+                    <p>{nextArticleChar.badge}</p>
+                  </div>
+                </div>
+                <span className="dossier-next-article-cta">
+                  <span>Hemen Oku</span>
+                  <ArrowRight size={15} />
+                </span>
+              </Link>
+            )}
+
             {/* Forum ve Tartışma Çağrısı */}
             <div className="dossier-forum-banner">
               <div>
@@ -258,13 +314,13 @@ export default async function CharacterDetailPage({ params }: PageProps) {
 
           {/* Aynı Dizideki Diğer Karakterler (İlişkili Kadro) */}
           {relatedCharacters.length > 0 && (
-            <section className="dossier-related-section animate-fade-up delay-4">
+            <section className="dossier-related-section animate-fade-up">
               <div className="dossier-related-header">
                 <div>
                   <h3 className="dossier-related-title">{character.series} Kadrosundaki Diğer Karakterler</h3>
                   <p className="dossier-related-sub">Bu dizinin diğer ana ve yan karakterlerinin zihinsel haritalarını incele:</p>
                 </div>
-                <Link href="/analizler" className="btn-white-outline btn-sm">
+                <Link href="/analizler" prefetch={true} className="btn-white-outline btn-sm">
                   Tüm Dizileri Gör
                 </Link>
               </div>
@@ -274,12 +330,15 @@ export default async function CharacterDetailPage({ params }: PageProps) {
                   <Link
                     key={relChar.id}
                     href={`/analizler/karakter/${relChar.id}`}
+                    prefetch={true}
                     className="analysis-poster-card"
                   >
                     <img
                       src={relChar.image}
                       alt={relChar.characterName}
                       className="poster-card-bg-img"
+                      loading="eager"
+                      decoding="async"
                     />
                     <div className="poster-card-gradient" />
 
