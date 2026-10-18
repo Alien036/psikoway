@@ -24,6 +24,7 @@ export interface ForumPost {
   authorAvatar?: string;
   authorProfession?: string;
   authorBio?: string;
+  imageUrl?: string;
   isAnonymous?: boolean;
   createdAt: string;
   likes: string[]; // User IDs who liked

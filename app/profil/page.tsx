@@ -22,6 +22,7 @@ import {
   getYouTubeHandle
 } from "../../lib/profile-data";
 import { deleteForumPost, deleteForumComment, subscribeToForumPosts } from "../../lib/forum-data";
+import { uploadCompressedImage, formatFileSize } from "../../lib/image-upload";
 import { UserProfile, UserStats } from "../../types/user";
 import { ForumPost } from "../../types/forum";
 import { InstagramIcon, YouTubeIcon } from "../../components/SocialIcons";
@@ -190,22 +191,49 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
     }
   }, [isViewingOther, queryId]);
 
-  // Fotoğraf Dosyası Yükleme (Base64)
-  const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Fotoğraf Dosyası Yükleme (Otomatik Sıkıştırma + Cloudinary Bulut Yükleme)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [photoCompressInfo, setPhotoCompressInfo] = useState<string | null>(null);
+
+  const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        alert("Fotoğraf boyutu 2MB'tan küçük olmalıdır.");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === "string") {
-          setPhotoURL(reader.result);
-          showToast("Fotoğraf seçildi! Kaydetmek için 'Değişiklikleri Kaydet'e basın.");
+    if (!file) return;
+
+    setUploadingPhoto(true);
+    setPhotoCompressInfo(null);
+    showToast("Fotoğraf sıkıştırılıyor ve buluta yükleniyor...");
+
+    try {
+      const result = await uploadCompressedImage(file, "avatar");
+      setPhotoURL(result.url);
+
+      const infoText = `${formatFileSize(result.originalSize)} → ${formatFileSize(result.compressedSize)} (%${result.savedPercent} sıkıştırıldı)`;
+      setPhotoCompressInfo(infoText);
+
+      // Kullanıcı kayıtlıysa profil fotoğrafını anında kaydet
+      if (user && (displayName.trim() || userProfile?.displayName)) {
+        try {
+          await updateProfileData({
+            displayName: displayName.trim() || userProfile?.displayName || "Düşünür",
+            profession: profession.trim() || userProfile?.profession || "Düşünce Kaşifi",
+            bio: bio.trim(),
+            photoURL: result.url,
+            email: email.trim(),
+            instagram: instagram.trim(),
+            youtube: youtube.trim(),
+          });
+          showToast(`Profil fotoğrafı sıkıştırılıp yüklendi! (${infoText})`);
+        } catch {
+          showToast("Fotoğraf yüklendi! Kaydetmek için 'Değişiklikleri Kaydet'e basın.");
         }
-      };
-      reader.readAsDataURL(file);
+      } else {
+        showToast("Fotoğraf yüklendi! Kaydetmek için 'Değişiklikleri Kaydet'e basın.");
+      }
+    } catch (err: any) {
+      alert(err?.message || "Fotoğraf yüklenirken bir hata oluştu.");
+    } finally {
+      setUploadingPhoto(false);
+      e.target.value = "";
     }
   };
 
@@ -871,14 +899,25 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
                               />
 
                               {/* 2. Dosya Yükleme Butonu */}
-                              <div className="upload-btn-wrapper">
-                                <label className="btn-file-upload">
+                              <div className="upload-btn-wrapper" style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                                <label
+                                  className="btn-file-upload"
+                                  style={{
+                                    opacity: uploadingPhoto ? 0.65 : 1,
+                                    pointerEvents: uploadingPhoto ? "none" : "auto",
+                                  }}
+                                >
                                   <Upload size={15} />
-                                  <span>Cihazdan Fotoğraf Yükle</span>
+                                  <span>
+                                    {uploadingPhoto
+                                      ? "Sıkıştırılıyor & Yükleniyor..."
+                                      : "Cihazdan Fotoğraf Yükle (Otomatik Sıkıştırma)"}
+                                  </span>
                                   <input
                                     id="profile-file-input"
                                     type="file"
                                     accept="image/*"
+                                    disabled={uploadingPhoto}
                                     onChange={handleImageFileUpload}
                                     style={{ display: "none" }}
                                   />
@@ -886,11 +925,29 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
                                 {photoURL && (
                                   <button
                                     type="button"
-                                    onClick={() => setPhotoURL("")}
+                                    onClick={() => {
+                                      setPhotoURL("");
+                                      setPhotoCompressInfo(null);
+                                    }}
                                     className="btn-remove-photo"
                                   >
                                     Fotoğrafı Kaldır
                                   </button>
+                                )}
+                                {photoCompressInfo && (
+                                  <span
+                                    style={{
+                                      fontSize: "12px",
+                                      color: "#34d399",
+                                      background: "rgba(16, 185, 129, 0.12)",
+                                      border: "1px solid rgba(16, 185, 129, 0.3)",
+                                      padding: "4px 10px",
+                                      borderRadius: "999px",
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    ⚡ {photoCompressInfo}
+                                  </span>
                                 )}
                               </div>
 
@@ -954,7 +1011,7 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
                           <div className="form-actions-row">
                             <button
                               type="submit"
-                              disabled={saving}
+                              disabled={saving || uploadingPhoto}
                               className="btn-primary-solid"
                               style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}
                             >
@@ -1012,6 +1069,20 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
                                 </div>
                                 <h4 className="user-post-item-title">{post.title}</h4>
                                 <p className="user-post-item-snippet">{post.content}</p>
+                                {post.imageUrl && (
+                                  <div style={{ marginTop: "10px", marginBottom: "10px" }}>
+                                    <img
+                                      src={post.imageUrl}
+                                      alt={post.title}
+                                      style={{
+                                        maxHeight: "180px",
+                                        borderRadius: "10px",
+                                        objectFit: "cover",
+                                        border: "1px solid rgba(224, 184, 120, 0.25)",
+                                      }}
+                                    />
+                                  </div>
+                                )}
                                 <div className="user-post-item-footer">
                                   <div className="user-post-item-meta">
                                     <span><Heart size={14} color="#e0b878" /> {post.likes.length} Beğeni</span>

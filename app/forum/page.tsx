@@ -32,6 +32,7 @@ import {
 import { UserWarning } from "../../types/admin";
 import { subscribeToRealUserCount, formatCommunityStat } from "../../lib/community-stats";
 import { triggerHoneypotTrap, checkCrisisAndSelfHarm, CrisisHelpInfo } from "../../lib/anti-spam";
+import { uploadCompressedImage, formatFileSize } from "../../lib/image-upload";
 import {
   MessageSquareQuote,
   Plus,
@@ -60,7 +61,9 @@ import {
   Briefcase,
   BookOpen,
   Lock,
-  UserPlus
+  UserPlus,
+  Image as ImageIcon,
+  Upload
 } from "lucide-react";
 
 // Tarih formatlama (Türkçe göreli zaman)
@@ -143,6 +146,10 @@ export default function ForumPage() {
   const [newCategory, setNewCategory] = useState<string>("Psikoloji & Zihin");
   const [newTags, setNewTags] = useState("");
   const [newContent, setNewContent] = useState("");
+  const [newImageUrl, setNewImageUrl] = useState("");
+  const [uploadingPostImage, setUploadingPostImage] = useState(false);
+  const [postImageCompressInfo, setPostImageCompressInfo] = useState<string | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [newIsAnonymous, setNewIsAnonymous] = useState(false);
   const [submittingPost, setSubmittingPost] = useState<boolean>(false);
   const [formError, setFormError] = useState("");
@@ -414,6 +421,29 @@ export default function ForumPage() {
     setIsNewPostModalOpen(true);
   };
 
+  // Gönderi Fotoğrafı Yükleme (Otomatik Sıkıştırma + Cloudinary)
+  const handlePostImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingPostImage(true);
+    setFormError("");
+    setPostImageCompressInfo(null);
+
+    try {
+      const result = await uploadCompressedImage(file, "forum");
+      setNewImageUrl(result.url);
+      const infoText = `${formatFileSize(result.originalSize)} → ${formatFileSize(result.compressedSize)} (%${result.savedPercent} sıkıştırıldı)`;
+      setPostImageCompressInfo(infoText);
+      showToast(`Fotoğraf sıkıştırıldı ve eklendi! (${infoText})`);
+    } catch (err: any) {
+      setFormError(err?.message || "Fotoğraf yüklenirken bir hata oluştu.");
+    } finally {
+      setUploadingPostImage(false);
+      e.target.value = "";
+    }
+  };
+
   // Yeni Gönderi Kaydetme (Yalnızca kayıtlı hesaplar & Anonim yasak)
   const handleCreatePostSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -465,7 +495,7 @@ export default function ForumPage() {
       setCrisisModalInfo(crisisCheck.crisisHelp);
     }
 
-    if (submittingPost) return;
+    if (submittingPost || uploadingPostImage) return;
     setSubmittingPost(true);
 
     try {
@@ -474,6 +504,7 @@ export default function ForumPage() {
         category: newCategory,
         tags: parsedTags.length > 0 ? parsedTags : ["Psikoloji", "Fikir"],
         content: newContent.trim(),
+        imageUrl: newImageUrl.trim() || "",
         authorId: user.uid,
         authorName: postAuthorName,
         authorAvatar: postAuthorAvatar,
@@ -486,6 +517,8 @@ export default function ForumPage() {
       // Formu sıfırla
       setNewTitle("");
       setNewContent("");
+      setNewImageUrl("");
+      setPostImageCompressInfo(null);
       setNewTags("");
       setNewCategory("Psikoloji & Zihin");
       setNewIsAnonymous(false);
@@ -892,6 +925,43 @@ export default function ForumPage() {
                           </button>
                         )}
                       </div>
+
+                      {/* Gönderiye Eklenen Fotoğraf (Varsa) */}
+                      {post.imageUrl && (
+                        <div
+                          className="post-attached-image-box"
+                          style={{
+                            marginTop: "12px",
+                            marginBottom: "14px",
+                            borderRadius: "12px",
+                            overflow: "hidden",
+                            border: "1px solid rgba(224, 184, 120, 0.22)",
+                            background: "rgba(0, 0, 0, 0.25)",
+                            maxHeight: "420px",
+                            display: "flex",
+                            justifyContent: "center",
+                            alignItems: "center",
+                            cursor: "zoom-in",
+                          }}
+                          onClick={() => {
+                            recordPostView(post.id);
+                            setLightboxImage(post.imageUrl || null);
+                          }}
+                          title="Fotoğrafı büyütmek için tıklayın"
+                        >
+                          <img
+                            src={post.imageUrl}
+                            alt={post.title}
+                            loading="lazy"
+                            style={{
+                              width: "100%",
+                              maxHeight: "420px",
+                              objectFit: "contain",
+                              display: "block",
+                            }}
+                          />
+                        </div>
+                      )}
 
                       {/* Etiketler */}
                       {post.tags && post.tags.length > 0 && (
@@ -1344,6 +1414,115 @@ export default function ForumPage() {
                   />
                 </div>
 
+                {/* Fotoğraf Ekleme Alanı (Otomatik Sıkıştırma + Cloudinary) */}
+                <div className="form-group">
+                  <label style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <ImageIcon size={15} color="#e0b878" />
+                    <span>Fotoğraf Ekle (İsteğe Bağlı — Otomatik Sıkıştırılır)</span>
+                  </label>
+
+                  <div
+                    style={{
+                      background: "rgba(255, 255, 255, 0.03)",
+                      border: "1px dashed rgba(224, 184, 120, 0.35)",
+                      borderRadius: "10px",
+                      padding: "12px 14px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "10px",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                      <label
+                        className="btn-white-outline btn-sm"
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "7px",
+                          cursor: uploadingPostImage ? "not-allowed" : "pointer",
+                          opacity: uploadingPostImage ? 0.65 : 1,
+                        }}
+                      >
+                        <Upload size={14} />
+                        <span>
+                          {uploadingPostImage
+                            ? "Fotoğraf Sıkıştırılıyor & Yükleniyor..."
+                            : newImageUrl
+                            ? "Fotoğrafı Değiştir"
+                            : "Cihazdan Fotoğraf Seç"}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={uploadingPostImage}
+                          onChange={handlePostImageUpload}
+                          style={{ display: "none" }}
+                        />
+                      </label>
+
+                      {newImageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNewImageUrl("");
+                            setPostImageCompressInfo(null);
+                          }}
+                          className="btn-white-outline btn-sm"
+                          style={{
+                            borderColor: "rgba(239, 68, 68, 0.45)",
+                            color: "#f87171",
+                          }}
+                        >
+                          <Trash2 size={13} />
+                          <span>Fotoğrafı Kaldır</span>
+                        </button>
+                      )}
+
+                      {postImageCompressInfo && (
+                        <span
+                          style={{
+                            fontSize: "12px",
+                            color: "#34d399",
+                            background: "rgba(16, 185, 129, 0.12)",
+                            border: "1px solid rgba(16, 185, 129, 0.3)",
+                            padding: "4px 10px",
+                            borderRadius: "999px",
+                            fontWeight: 500,
+                          }}
+                        >
+                          ⚡ {postImageCompressInfo}
+                        </span>
+                      )}
+                    </div>
+
+                    {newImageUrl && (
+                      <div
+                        style={{
+                          position: "relative",
+                          borderRadius: "8px",
+                          overflow: "hidden",
+                          border: "1px solid rgba(224, 184, 120, 0.3)",
+                          maxHeight: "220px",
+                          background: "rgba(0,0,0,0.3)",
+                          display: "flex",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <img
+                          src={newImageUrl}
+                          alt="Gönderi fotoğrafı önizleme"
+                          style={{
+                            maxHeight: "220px",
+                            width: "auto",
+                            maxWidth: "100%",
+                            objectFit: "contain",
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Paylaşım Yapan Hesap Bilgisi (Anonim paylaşım engellendi) */}
                 <div className="form-author-indicator">
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -1388,11 +1567,23 @@ export default function ForumPage() {
                   </button>
                   <button
                     type="submit"
+                    disabled={submittingPost || uploadingPostImage}
                     className="btn-primary-solid"
-                    style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      opacity: submittingPost || uploadingPostImage ? 0.65 : 1,
+                    }}
                   >
                     <Send size={16} />
-                    <span>Fikri Toplulukla Paylaş</span>
+                    <span>
+                      {uploadingPostImage
+                        ? "Fotoğraf Yükleniyor..."
+                        : submittingPost
+                        ? "Paylaşılıyor..."
+                        : "Fikri Toplulukla Paylaş"}
+                    </span>
                   </button>
                 </div>
               </form>
@@ -1489,6 +1680,55 @@ export default function ForumPage() {
                 .
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL 3: FOTOĞRAF BÜYÜTME (LIGHTBOX) --- */}
+      {lightboxImage && (
+        <div
+          className="modal-overlay"
+          style={{ zIndex: 99998, background: "rgba(0, 0, 0, 0.88)" }}
+          onClick={() => setLightboxImage(null)}
+        >
+          <div
+            style={{
+              position: "relative",
+              maxWidth: "92vw",
+              maxHeight: "90vh",
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setLightboxImage(null)}
+              className="modal-close-btn"
+              style={{
+                position: "absolute",
+                top: "-42px",
+                right: "0",
+                background: "rgba(255, 255, 255, 0.14)",
+                color: "#fff",
+              }}
+              aria-label="Kapat"
+            >
+              <X size={22} />
+            </button>
+            <img
+              src={lightboxImage}
+              alt="Büyütülmüş gönderi görseli"
+              style={{
+                maxWidth: "92vw",
+                maxHeight: "86vh",
+                borderRadius: "12px",
+                objectFit: "contain",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.8)",
+                border: "1px solid rgba(224, 184, 120, 0.35)",
+              }}
+            />
           </div>
         </div>
       )}
