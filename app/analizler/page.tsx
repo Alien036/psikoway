@@ -341,7 +341,7 @@ export default function AnalysisPage() {
             /* DİZİ & FİLM KATALOĞU IZGARASI - HER SIRADA 3 SİNEMATİK KAPAK KARTI */
             <div className="series-catalog-grid">
               {filteredSeriesList.map((series, idx) => {
-                const animClass = idx < 6 ? `animate-fade-up` : "";
+                const animClass = idx < 6 ? `animate-fade-up delay-${(idx % 6) + 1}` : "";
                 const isMovie = series.id.endsWith("-movie");
                 return (
                   <article
@@ -380,7 +380,8 @@ export default function AnalysisPage() {
                           {series.genre}
                         </span>
                         <span className="series-card-count-badge">
-                          {series.characterCount} Analiz
+                          <span className="desktop-only-inline">{series.characterCount} Karakter Analizi</span>
+                          <span className="mobile-only-inline">{series.characterCount} Analiz</span>
                         </span>
                       </div>
 
@@ -404,8 +405,9 @@ export default function AnalysisPage() {
                         {/* Tıklama Aksiyon Çubuğu */}
                         <div className="series-card-action-bar">
                           <span className="series-open-drawer-btn">
-                            <ChevronUp size={14} className="drawer-arrow-bounce" />
-                            <span>Karakterler</span>
+                            <ChevronUp size={16} className="drawer-arrow-bounce" />
+                            <span className="desktop-only-inline">Karakterleri İncele</span>
+                            <span className="mobile-only-inline">Karakterler</span>
                           </span>
                           <span className="series-card-chars-hint">
                             {isMovie ? "Kilit Karakterler" : "Ana & Yan Roller"}

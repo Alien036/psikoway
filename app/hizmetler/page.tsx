@@ -38,81 +38,81 @@ export default function ServicesPage() {
     {
       id: "bireysel",
       category: "bireysel",
-      icon: <Brain size={18} />,
+      icon: <Brain size={26} />,
       title: "Bireysel Psikoterapi",
       desc: "İçsel çatışmalar, kendini tanıma, özsaygı, duygusal dayanıklılık ve yaşam krizleriyle başa çıkma sürecinde güvenli ve gizli bir alan sunar.",
       tags: ["Öz-Şefkat", "Duygudurum", "İçsel Denge"],
-      duration: "50 Dk",
+      duration: "50 Dakika",
       approach: "Bütüncül & Psikodinamik",
     },
     {
       id: "bdt",
       category: "bireysel",
-      icon: <Lightbulb size={18} />,
+      icon: <Lightbulb size={26} />,
       title: "Bilişsel Davranışçı Terapi (BDT)",
       desc: "Düşünce, duygu ve davranış zincirini çözümleyerek işlevsiz inanç ve kaygı kalıplarını dönüştürmeyi amaçlayan, bilimsel kanıta dayalı yapılandırılmış terapi.",
       tags: ["Kaygı Yönetimi", "Otomatik Düşünceler", "Hedef Odaklı"],
-      duration: "50 Dk",
+      duration: "50 Dakika",
       approach: "Kanıta Dayalı BDT",
     },
     {
       id: "emdr",
       category: "travma",
-      icon: <Waves size={18} />,
+      icon: <Waves size={26} />,
       title: "EMDR & Travma Terapisi",
       desc: "Geçmişte yaşanan sarsıcı yaşam olayları, kayıplar ve fobilerin sinir sistemindeki kilitlenmelerini iki yönlü uyarım yöntemiyle duyarsızlaştırır ve yeniden işler.",
       tags: ["Travma Sonrası Stres", "Fobiler", "Duyarsızlaştırma"],
-      duration: "60 Dk",
+      duration: "60 Dakika",
       approach: "EMDR Enstitüsü Standartları",
     },
     {
       id: "cift",
       category: "cift",
-      icon: <HeartHandshake size={18} />,
+      icon: <HeartHandshake size={26} />,
       title: "Çift ve İlişki Terapisi",
       desc: "Partnerler arasındaki iletişim kopuklukları, bağlanma yaraları, güven krizleri ve duygusal yakınlaşma ihtiyaçlarına yönelik rehberlik.",
-      tags: ["Duygu Odaklı Çift", "Gottman Metodu", "Güven İnşası"],
-      duration: "75 Dk",
+      tags: ["Duygu Odaklı Çift Terapisi", "Gottman Metodu", "Güven İnşası"],
+      duration: "75 Dakika",
       approach: "Duygu Odaklı Terapi (EFT)",
     },
     {
       id: "panik-kaygi",
       category: "bireysel",
-      icon: <ShieldAlert size={18} />,
+      icon: <ShieldAlert size={26} />,
       title: "Kaygı & Panik Atak Yönetimi",
       desc: "Sürekli endişe hali, yaygın anksiyete, agorafobi ve ani panik atak döngülerini bedensel regülasyon ve düşünce teknikleriyle kontrol altına alma.",
       tags: ["Panik Atak", "Yaygın Kaygı", "Soma ve Nefes"],
-      duration: "50 Dk",
+      duration: "50 Dakika",
       approach: "Bilişsel & Somatik",
     },
     {
       id: "online",
       category: "online",
-      icon: <Monitor size={18} />,
+      icon: <Monitor size={26} />,
       title: "Çevrimiçi (Online) Terapi",
       desc: "Yurt içi veya yurt dışında yaşayan danışanlar için mesafe sınırlarını ortadan kaldıran, şifreli ve güvenli dijital seans altyapısı.",
       tags: ["Esnek Seans", "Uluslararası Erişim", "Gizli Görüşme"],
-      duration: "50 Dk",
+      duration: "50 Dakika",
       approach: "Online Güvenli Protokol",
     },
     {
       id: "depresyon",
       category: "bireysel",
-      icon: <Sprout size={18} />,
+      icon: <Sprout size={26} />,
       title: "Depresyon & Yaşam Doyumu",
       desc: "Kronik motivasyon kaybı, isteksizlik, tükenmişlik ve değersizlik hisleriyle çalışarak hayata anlam ve canlılık kazandırma adımları.",
       tags: ["Tükenmişlik", "Anlam Arayışı", "Yeniden Yapılanma"],
-      duration: "50 Dk",
+      duration: "50 Dakika",
       approach: "Varoluşçu & Bilişsel",
     },
     {
       id: "ergen",
       category: "bireysel",
-      icon: <Compass size={18} />,
+      icon: <Compass size={26} />,
       title: "Genç & Ergen Danışmanlığı",
       desc: "Kimlik gelişimi, sınav kaygısı, aile içi uyumsuzluk ve akran baskısı yaşayan gençlere yönelik empatik ve destekleyici psikolojik danışmanlık.",
       tags: ["Kimlik İnşası", "Sınav Stresi", "Aile İletişimi"],
-      duration: "50 Dk",
+      duration: "50 Dakika",
       approach: "Gelişim Odaklı",
     },
   ];
@@ -181,19 +181,14 @@ export default function ServicesPage() {
             </button>
           </div>
 
-          {/* Hizmet Kartları Listesi - Kompakt Kutucuklar */}
+          {/* Hizmet Kartları Listesi */}
           <div className="services-grid-list">
-            {filteredServices.map((service) => {
+            {filteredServices.map((service, index) => {
+              const delayClass = `delay-${(index % 8) + 1}`;
               return (
-                <div key={service.id} className="service-card animate-fade-up">
+                <div key={service.id} className={`service-card animate-fade-up ${delayClass}`}>
                   <div className="service-card-top">
-                    <div className="service-card-head-row">
-                      <div className="service-icon-box">{service.icon}</div>
-                      <span className="service-duration">
-                        <Clock size={12} />
-                        {service.duration}
-                      </span>
-                    </div>
+                    <div className="service-icon-box">{service.icon}</div>
                     <h3>{service.title}</h3>
                     <p>{service.desc}</p>
                     <div className="service-meta-tags">
@@ -206,10 +201,16 @@ export default function ServicesPage() {
                   </div>
 
                   <div className="service-card-bottom">
-                    <Link href={`/iletisim?terapi=${encodeURIComponent(service.title)}`} className="btn-card-action">
-                      <span>Randevu Al</span>
-                      <ArrowRight size={13} />
-                    </Link>
+                    <div className="service-card-bottom-row">
+                      <span className="service-duration">
+                        <Clock size={15} />
+                        {service.duration}
+                      </span>
+                      <Link href={`/iletisim?terapi=${encodeURIComponent(service.title)}`} className="btn-card-action">
+                        <span>Randevu Al</span>
+                        <ArrowRight size={15} />
+                      </Link>
+                    </div>
 
                     <a
                       href={`https://wa.me/905523283646?text=${encodeURIComponent(`Merhaba ${service.title} terapisi almak istiyorum hangi saatler uygun`)}`}
@@ -218,8 +219,9 @@ export default function ServicesPage() {
                       className="btn-whatsapp-card-action"
                       title={`${service.title} için WhatsApp ile hızlı bilgi al`}
                     >
-                      <MessageSquare size={12} />
-                      <span>WhatsApp</span>
+                      <MessageSquare size={14} />
+                      <span className="whatsapp-desktop-text">WhatsApp ile Hızlı Bilgi Al</span>
+                      <span className="whatsapp-mobile-text">WhatsApp</span>
                     </a>
                   </div>
                 </div>
