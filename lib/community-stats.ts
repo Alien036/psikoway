@@ -11,6 +11,7 @@ const createSeedEmojiSvg = (emoji: string, bg: string = "#1e293b"): string => {
 export const SEED_COMMUNITY_USERS: Record<string, Partial<UserProfile>> = {
   "seed-user-1": {
     uid: "seed-user-1",
+    username: "dr-selin-yilmaz",
     displayName: "Dr. Selin Yılmaz",
     email: "selin.yilmaz@psikoway.com",
     photoURL: createSeedEmojiSvg("👩‍⚕️", "#2e2038"),
@@ -23,6 +24,7 @@ export const SEED_COMMUNITY_USERS: Record<string, Partial<UserProfile>> = {
   },
   "seed-user-admin": {
     uid: "seed-user-admin",
+    username: "psikoway-moderator",
     displayName: "PsikoWay Moderatör",
     email: "admin@psikoway.com",
     photoURL: createSeedEmojiSvg("🧑‍🎓", "#243242"),
@@ -35,6 +37,7 @@ export const SEED_COMMUNITY_USERS: Record<string, Partial<UserProfile>> = {
   },
   "seed-user-2": {
     uid: "seed-user-2",
+    username: "kaan-aras",
     displayName: "Kaan Aras",
     email: "kaan.aras@example.com",
     photoURL: createSeedEmojiSvg("👨‍🏫", "#1e3a5f"),
@@ -47,6 +50,7 @@ export const SEED_COMMUNITY_USERS: Record<string, Partial<UserProfile>> = {
   },
   "seed-user-3": {
     uid: "seed-user-3",
+    username: "elif-demir",
     displayName: "Elif Demir",
     email: "elif.demir@example.com",
     photoURL: createSeedEmojiSvg("👩‍💼", "#3b1e32"),
@@ -59,6 +63,7 @@ export const SEED_COMMUNITY_USERS: Record<string, Partial<UserProfile>> = {
   },
   "seed-user-4": {
     uid: "seed-user-4",
+    username: "mert-karaca",
     displayName: "Mert Karaca",
     email: "mert.karaca@example.com",
     photoURL: createSeedEmojiSvg("👨", "#1e293b"),
@@ -71,6 +76,7 @@ export const SEED_COMMUNITY_USERS: Record<string, Partial<UserProfile>> = {
   },
   "seed-user-8": {
     uid: "seed-user-8",
+    username: "burak-kaya",
     displayName: "Burak Kaya",
     email: "burak.kaya@example.com",
     photoURL: createSeedEmojiSvg("🧔", "#2d283e"),

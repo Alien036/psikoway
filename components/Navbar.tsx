@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "../context/AuthContext";
+import { getProfileUrl } from "../lib/profile-data";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -217,7 +218,15 @@ export default function Navbar() {
                   <div className="dropdown-divider"></div>
                   
                   <Link
-                    href="/profil"
+                    href={
+                      user.isAnonymous
+                        ? "/profil"
+                        : getProfileUrl({
+                            username: userProfile?.username,
+                            displayName: userProfile?.displayName || getUserDisplayName(),
+                            uid: user.uid,
+                          })
+                    }
                     onClick={() => setUserDropdownOpen(false)}
                     className="dropdown-item"
                   >
@@ -375,7 +384,14 @@ export default function Navbar() {
                 type="button"
                 onClick={() => {
                   setSidebarOpen(false);
-                  router.push("/profil");
+                  const profileHref = user.isAnonymous
+                    ? "/profil"
+                    : getProfileUrl({
+                        username: userProfile?.username,
+                        displayName: userProfile?.displayName || getUserDisplayName(),
+                        uid: user.uid,
+                      });
+                  router.push(profileHref);
                 }} 
                 className="side-drawer-user-info"
               >

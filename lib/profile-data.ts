@@ -1,10 +1,52 @@
-import { doc, getDoc, setDoc, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs, query, where } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
 import { firestore, auth } from "./firebase";
 import { UserProfile, UserStats } from "../types/user";
 import { getStoredPosts, getLocalShadowPosts } from "./forum-data";
 import { SEED_COMMUNITY_USERS } from "./community-stats";
 import { ForumPost } from "../types/forum";
+
+/**
+ * Kullanıcı adını veya görünen ismi URL-dostu temiz bir kullanıcı adı slug'ına dönüştürür.
+ * Örn: "Dr. Selin Yılmaz" -> "dr-selin-yilmaz"
+ */
+export const toUsernameSlug = (input?: string): string => {
+  if (!input) return "dusunur";
+  const slug = input
+    .trim()
+    .toLowerCase()
+    .replace(/^@+/, "")
+    .replace(/ğ/g, "g")
+    .replace(/ü/g, "u")
+    .replace(/ş/g, "s")
+    .replace(/ı/g, "i")
+    .replace(/i̇/g, "i")
+    .replace(/ö/g, "o")
+    .replace(/ç/g, "c")
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^[.-]+|[.-]+$/g, "");
+  return slug || "dusunur";
+};
+
+/**
+ * Kullanıcı profiline giderken ID yerine kullanıcı adıyla temiz URL üretir.
+ * Örn: "/profil/dr-selin-yilmaz"
+ */
+export const getProfileUrl = (params: {
+  username?: string;
+  displayName?: string;
+  authorName?: string;
+  uid?: string;
+  authorId?: string;
+}): string => {
+  const rawName = params.username || params.displayName || params.authorName || "";
+  if (rawName && rawName.trim() && rawName !== "Anonim Düşünür") {
+    return `/profil/${encodeURIComponent(toUsernameSlug(rawName))}`;
+  }
+  const fallbackId = params.uid || params.authorId || "";
+  return fallbackId ? `/profil/${encodeURIComponent(fallbackId)}` : "/profil";
+};
 
 /**
  * Emoji karakterini yüksek kaliteli, her tarayıcıda çalışan SVG Data URL'sine dönüştürür.
@@ -98,42 +140,115 @@ export const getYouTubeHandle = (handleOrUrl?: string): string => {
 };
 
 /**
- * Kullanıcı profilini Cloud Firestore'dan getirir.
- * Realtime Database'de eski kullanıcı verisi kalmışsa otomatik olarak Firestore'a taşır.
+ * Kullanıcı profilini kullanıcı adı (username slug), görünen isim (displayName) veya UID ile getirir.
  */
-export const getUserProfile = async (uid: string): Promise<UserProfile | null> => {
-  if (!uid) return null;
+export const getUserProfile = async (identifier: string): Promise<UserProfile | null> => {
+  if (!identifier) return null;
 
-  // 1. Cloud Firestore'dan çek (Ana Kullanıcı Depolama Alanı)
+  let decoded = identifier;
   try {
-    const userDocRef = doc(firestore, "users", uid);
+    decoded = decodeURIComponent(identifier).trim();
+  } catch {
+    decoded = identifier.trim();
+  }
+
+  const targetSlug = toUsernameSlug(decoded);
+
+  // 1. Önce doğrudan UID ile veya username sorgusuyla Cloud Firestore'dan çek
+  try {
+    // 1a. Doğrudan belge ID'si (UID) olarak dene
+    const userDocRef = doc(firestore, "users", decoded);
     const snapshot = await getDoc(userDocRef);
     if (snapshot.exists()) {
-      const data = snapshot.data() as UserProfile;
+      const raw = snapshot.data() as UserProfile;
+      const data: UserProfile = {
+        ...raw,
+        uid: raw.uid || snapshot.id,
+        username: raw.username || toUsernameSlug(raw.displayName),
+      };
       if (typeof window !== "undefined") {
-        localStorage.setItem(`${PROFILE_CACHE_PREFIX}${uid}`, JSON.stringify(data));
+        localStorage.setItem(`${PROFILE_CACHE_PREFIX}${data.uid}`, JSON.stringify(data));
+        localStorage.setItem(`${PROFILE_CACHE_PREFIX}${data.username}`, JSON.stringify(data));
       }
       return data;
+    }
+
+    // 1b. Firestore 'username' alanına göre sorgula
+    const usersCol = collection(firestore, "users");
+    const qUsername = query(usersCol, where("username", "==", targetSlug));
+    const qSnap = await getDocs(qUsername);
+    if (!qSnap.empty) {
+      const docSnap = qSnap.docs[0];
+      const raw = docSnap.data() as UserProfile;
+      const data: UserProfile = {
+        ...raw,
+        uid: raw.uid || docSnap.id,
+        username: raw.username || targetSlug,
+      };
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`${PROFILE_CACHE_PREFIX}${data.uid}`, JSON.stringify(data));
+        localStorage.setItem(`${PROFILE_CACHE_PREFIX}${data.username}`, JSON.stringify(data));
+      }
+      return data;
+    }
+
+    // 1c. Eski kayıtlarda 'username' alanı henüz yoksa tüm kullanıcılar içinde displayName slug'ı ile eşleştir
+    const allUsersSnap = await getDocs(usersCol);
+    for (const d of allUsersSnap.docs) {
+      const raw = d.data() as UserProfile;
+      const docSlug = toUsernameSlug(raw.username || raw.displayName);
+      if (
+        docSlug === targetSlug ||
+        (raw.displayName && raw.displayName.trim().toLowerCase() === decoded.toLowerCase())
+      ) {
+        const data: UserProfile = {
+          ...raw,
+          uid: raw.uid || d.id,
+          username: docSlug,
+        };
+        // Eksik username alanını arka planda tamamla
+        if (!raw.username) {
+          setDoc(doc(firestore, "users", data.uid), { username: docSlug }, { merge: true }).catch(() => {});
+        }
+        if (typeof window !== "undefined") {
+          localStorage.setItem(`${PROFILE_CACHE_PREFIX}${data.uid}`, JSON.stringify(data));
+          localStorage.setItem(`${PROFILE_CACHE_PREFIX}${docSlug}`, JSON.stringify(data));
+        }
+        return data;
+      }
     }
   } catch (err) {
     console.warn("Firestore user profile fetch warning:", err);
   }
 
-  // 2. LocalStorage Cache Fallback
+  // 2. LocalStorage Cache Fallback (hem raw anahtar hem slug ile kontrol)
   if (typeof window !== "undefined") {
     try {
-      const cached = localStorage.getItem(`${PROFILE_CACHE_PREFIX}${uid}`);
+      const cached =
+        localStorage.getItem(`${PROFILE_CACHE_PREFIX}${decoded}`) ||
+        localStorage.getItem(`${PROFILE_CACHE_PREFIX}${targetSlug}`);
       if (cached) {
         return JSON.parse(cached);
       }
     } catch {}
   }
 
-  // 4. Topluluğun Kurucu / Seed Üyeleri Kontrolü
-  if (SEED_COMMUNITY_USERS[uid]) {
-    const seed = SEED_COMMUNITY_USERS[uid];
+  // 3. Topluluğun Kurucu / Seed Üyeleri Kontrolü (Hem UID hem Kullanıcı Adı Slug ile)
+  const matchedSeedEntry = Object.entries(SEED_COMMUNITY_USERS).find(([seedKey, seedVal]) => {
+    return (
+      seedKey === decoded ||
+      seedVal.uid === decoded ||
+      toUsernameSlug(seedVal.username || seedVal.displayName) === targetSlug
+    );
+  });
+
+  if (matchedSeedEntry) {
+    const [seedKey, seed] = matchedSeedEntry;
+    const resolvedUid = seed.uid || seedKey;
+    const resolvedUsername = toUsernameSlug(seed.username || seed.displayName);
     const seedProfile: UserProfile = {
-      uid: seed.uid || uid,
+      uid: resolvedUid,
+      username: resolvedUsername,
       email: seed.email || "",
       displayName: seed.displayName || "PsikoWay Düşünürü",
       photoURL: seed.photoURL || "",
@@ -144,21 +259,28 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
       createdAt: seed.createdAt || new Date().toISOString(),
       isAnonymous: false,
     };
-    // Arka planda Firestore'a da kaydet
-    setDoc(doc(firestore, "users", uid), seedProfile, { merge: true }).catch(() => {});
+    setDoc(doc(firestore, "users", resolvedUid), seedProfile, { merge: true }).catch(() => {});
     if (typeof window !== "undefined") {
-      localStorage.setItem(`${PROFILE_CACHE_PREFIX}${uid}`, JSON.stringify(seedProfile));
+      localStorage.setItem(`${PROFILE_CACHE_PREFIX}${resolvedUid}`, JSON.stringify(seedProfile));
+      localStorage.setItem(`${PROFILE_CACHE_PREFIX}${resolvedUsername}`, JSON.stringify(seedProfile));
     }
     return seedProfile;
   }
 
-  // 5. Mevcut Firebase Auth oturumundan temel profil oluştur
+  // 4. Mevcut Firebase Auth oturumundan temel profil oluştur
   const currentUser = auth.currentUser;
-  if (currentUser && currentUser.uid === uid) {
+  if (
+    currentUser &&
+    (currentUser.uid === decoded ||
+      toUsernameSlug(currentUser.displayName || "") === targetSlug)
+  ) {
+    const fallbackName =
+      currentUser.displayName || (currentUser.isAnonymous ? "Misafir Düşünür" : "PsikoWay Üyesi");
     const fallbackProfile: UserProfile = {
-      uid,
+      uid: currentUser.uid,
+      username: toUsernameSlug(fallbackName),
       email: currentUser.email || "",
-      displayName: currentUser.displayName || (currentUser.isAnonymous ? "Misafir Düşünür" : "PsikoWay Üyesi"),
+      displayName: fallbackName,
       photoURL: currentUser.photoURL || "",
       profession: "Düşünce Kaşifi",
       bio: "Psikoloji ve insan zihnini keşfetmeyi seven bir topluluk üyesi.",
@@ -167,17 +289,21 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
       createdAt: new Date().toISOString(),
       isAnonymous: currentUser.isAnonymous,
     };
-    // Firestore'a kaydet
-    setDoc(doc(firestore, "users", uid), fallbackProfile, { merge: true }).catch(() => {});
+    setDoc(doc(firestore, "users", currentUser.uid), fallbackProfile, { merge: true }).catch(() => {});
     return fallbackProfile;
   }
 
-  // 6. Forum gönderilerinde bu yazar var mı? (Geriye dönük uyumluluk)
+  // 5. Forum gönderilerinde veya yorumlarında bu yazar var mı? (Hem authorId hem authorName slug ile)
   const posts = getStoredPosts();
-  const authorPost = posts.find((p) => p.authorId === uid && !p.isAnonymous);
+  const authorPost = posts.find(
+    (p) =>
+      !p.isAnonymous &&
+      (p.authorId === decoded || toUsernameSlug(p.authorName) === targetSlug)
+  );
   if (authorPost) {
     const postFallbackProfile: UserProfile = {
-      uid,
+      uid: authorPost.authorId,
+      username: toUsernameSlug(authorPost.authorName),
       email: "",
       displayName: authorPost.authorName || "PsikoWay Düşünürü",
       photoURL: authorPost.authorAvatar || undefined,
@@ -191,6 +317,30 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
     return postFallbackProfile;
   }
 
+  // Yorum yazarlarından da kontrol et
+  for (const p of posts) {
+    const matchedComm = (p.comments || []).find(
+      (c) =>
+        !c.isAnonymous &&
+        (c.authorId === decoded || toUsernameSlug(c.authorName) === targetSlug)
+    );
+    if (matchedComm) {
+      return {
+        uid: matchedComm.authorId,
+        username: toUsernameSlug(matchedComm.authorName),
+        email: "",
+        displayName: matchedComm.authorName || "PsikoWay Düşünürü",
+        photoURL: matchedComm.authorAvatar || undefined,
+        profession: matchedComm.authorProfession || "Düşünce Kaşifi",
+        bio: "PsikoWay düşünce topluluğu üyesi.",
+        instagram: "",
+        youtube: "",
+        createdAt: matchedComm.createdAt || new Date().toISOString(),
+        isAnonymous: false,
+      };
+    }
+  }
+
   return null;
 };
 
@@ -201,11 +351,15 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
 export const saveUserProfile = async (profile: UserProfile): Promise<UserProfile> => {
   if (!profile.uid) throw new Error("Kullanıcı ID'si eksik.");
 
+  const resolvedDisplayName = (profile.displayName || "PsikoWay Üyesi").trim();
+  const resolvedUsername = toUsernameSlug(profile.username || resolvedDisplayName);
+
   // Firestore "undefined" alanları kabul etmez. Tüm alanları eksiksiz ve geçerli tiplerle hazırlarız:
   const cleanProfile: UserProfile = {
     uid: profile.uid,
+    username: resolvedUsername,
     email: (profile.email || "").trim(),
-    displayName: (profile.displayName || "PsikoWay Üyesi").trim(),
+    displayName: resolvedDisplayName,
     photoURL: profile.photoURL || "",
     profession: (profile.profession || "Düşünce Kaşifi").trim(),
     bio: (profile.bio || "").trim(),
@@ -239,7 +393,7 @@ export const saveUserProfile = async (profile: UserProfile): Promise<UserProfile
       ...cleanProfile,
       updatedAt: new Date().toISOString(),
     }, { merge: true });
-    console.log(`[Firestore] Kullanıcı başarıyla kaydedildi: ${cleanProfile.displayName} (${cleanProfile.uid})`);
+    console.log(`[Firestore] Kullanıcı başarıyla kaydedildi: ${cleanProfile.displayName} (@${cleanProfile.username})`);
   } catch (err) {
     console.error("Firestore profile save error:", err);
     throw err;
@@ -248,6 +402,9 @@ export const saveUserProfile = async (profile: UserProfile): Promise<UserProfile
   // 3. LocalStorage'a kaydet
   if (typeof window !== "undefined") {
     localStorage.setItem(`${PROFILE_CACHE_PREFIX}${profile.uid}`, JSON.stringify(cleanProfile));
+    if (cleanProfile.username) {
+      localStorage.setItem(`${PROFILE_CACHE_PREFIX}${cleanProfile.username}`, JSON.stringify(cleanProfile));
+    }
   }
 
   return cleanProfile;
@@ -327,19 +484,26 @@ export const getAllUsersFromFirestore = async (): Promise<UserProfile[]> => {
 };
 
 
-export const getUserCommunityStats = (uid: string): UserStats => {
+export const getUserCommunityStats = (uid: string, displayNameOrSlug?: string): UserStats => {
   const posts = getStoredPosts();
+  const targetSlug = displayNameOrSlug ? toUsernameSlug(displayNameOrSlug) : toUsernameSlug(uid);
   let postsCount = 0;
   let commentsCount = 0;
   let likesReceived = 0;
 
   posts.forEach((p) => {
-    if (p.authorId === uid) {
+    const isAuthor =
+      p.authorId === uid ||
+      (!p.isAnonymous && toUsernameSlug(p.authorName) === targetSlug);
+    if (isAuthor) {
       postsCount++;
       likesReceived += p.likes.length;
     }
     p.comments.forEach((c) => {
-      if (c.authorId === uid) {
+      const isCommentAuthor =
+        c.authorId === uid ||
+        (!c.isAnonymous && toUsernameSlug(c.authorName) === targetSlug);
+      if (isCommentAuthor) {
         commentsCount++;
         likesReceived += c.likes.length;
       }
@@ -361,16 +525,27 @@ export interface UserProfileComment {
   isShadowbanned?: boolean;
 }
 
-export const getUserPosts = (uid: string, includeAnonymous: boolean = false): ForumPost[] => {
+export const getUserPosts = (
+  uid: string,
+  includeAnonymous: boolean = false,
+  displayNameOrSlug?: string
+): ForumPost[] => {
   const posts = getStoredPosts();
   const localShadow = getLocalShadowPosts();
+  const targetSlug = displayNameOrSlug ? toUsernameSlug(displayNameOrSlug) : toUsernameSlug(uid);
   const map = new Map<string, ForumPost>();
   posts.forEach((p) => map.set(p.id, p));
   localShadow.forEach((lp) => {
     if (!map.has(lp.id)) map.set(lp.id, lp);
   });
   const all = Array.from(map.values());
-  return all.filter((p) => p.authorId === uid && (includeAnonymous || !p.isAnonymous));
+  return all.filter((p) => {
+    if (!includeAnonymous && p.isAnonymous) return false;
+    return (
+      p.authorId === uid ||
+      (!p.isAnonymous && toUsernameSlug(p.authorName) === targetSlug)
+    );
+  });
 };
 
 export const getUserComments = (uid: string): UserProfileComment[] => {

@@ -57,7 +57,7 @@ import {
 } from "../../lib/admin-data";
 import { getStoredPosts, subscribeToForumPosts } from "../../lib/forum-data";
 import { getContactMessages, deleteContactMessage, updateMessageStatus, ContactMessage } from "../../lib/contact-data";
-import { getAllUsersFromFirestore, migrateAllUsersFromRTDBToFirestore } from "../../lib/profile-data";
+import { getAllUsersFromFirestore, migrateAllUsersFromRTDBToFirestore, getProfileUrl } from "../../lib/profile-data";
 import { 
   getSecurityAlerts, 
   subscribeToSecurityAlerts, 
@@ -2203,7 +2203,7 @@ export default function AdminPage() {
                                 )}
 
                                 <Link
-                                  href={`/profil?id=${userItem.userId}`}
+                                  href={getProfileUrl({ displayName: userItem.userName, uid: userItem.userId })}
                                   target="_blank"
                                   className="btn-white-outline btn-sm"
                                   style={{

@@ -19,7 +19,9 @@ import {
   getInstagramUrl,
   getInstagramHandle,
   getYouTubeUrl,
-  getYouTubeHandle
+  getYouTubeHandle,
+  toUsernameSlug,
+  getProfileUrl
 } from "../../lib/profile-data";
 import { deleteForumPost, deleteForumComment, subscribeToForumPosts } from "../../lib/forum-data";
 import { uploadCompressedImage, formatFileSize } from "../../lib/image-upload";
@@ -55,7 +57,15 @@ import {
 
 function ProfileContentInner({ forcedId }: { forcedId?: string }) {
   const searchParams = useSearchParams();
-  const queryId = forcedId || searchParams.get("id") || searchParams.get("uid") || null;
+  const queryId =
+    forcedId ||
+    searchParams.get("kullanici") ||
+    searchParams.get("username") ||
+    searchParams.get("id") ||
+    searchParams.get("uid") ||
+    null;
+  const isPreviewMode =
+    searchParams.get("onizleme") === "1" || searchParams.get("preview") === "1";
 
   const { 
     user, 
@@ -66,11 +76,23 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
     isAnonymousUser 
   } = useAuth();
 
-  // Ziyaret Edilen Başka Bir Kullanıcı mı?
-  const isViewingOther = Boolean(queryId && (!user || user.uid !== queryId));
+  const myUsernameSlug = toUsernameSlug(
+    userProfile?.username || userProfile?.displayName || user?.displayName || ""
+  );
+  const querySlug = queryId ? toUsernameSlug(queryId) : "";
+  const isSelfIdentifier = Boolean(
+    user &&
+      queryId &&
+      (queryId === user.uid ||
+        (myUsernameSlug && myUsernameSlug !== "dusunur" && querySlug === myUsernameSlug))
+  );
+
+  // Ziyaret Edilen Başka Bir Kullanıcı mı? (veya Herkese Açık Önizleme Modu mu?)
+  const isViewingOther = Boolean(queryId && (!isSelfIdentifier || isPreviewMode));
 
   // Kendi Profil Form Alanları
   const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [profession, setProfession] = useState("");
   const [bio, setBio] = useState("");
   const [photoURL, setPhotoURL] = useState("");
@@ -105,6 +127,9 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
   useEffect(() => {
     if (userProfile) {
       setDisplayName(userProfile.displayName || "");
+      setUsername(
+        userProfile.username || toUsernameSlug(userProfile.displayName || "")
+      );
       setProfession(userProfile.profession || "");
       setBio(userProfile.bio || "");
       setPhotoURL(userProfile.photoURL || "");
@@ -112,29 +137,53 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
       setInstagram(userProfile.instagram || "");
       setYoutube(userProfile.youtube || "");
     } else if (user) {
-      setDisplayName(user.displayName || (user.isAnonymous ? "Misafir Düşünür" : ""));
+      const fallbackName = user.displayName || (user.isAnonymous ? "Misafir Düşünür" : "");
+      setDisplayName(fallbackName);
+      setUsername(toUsernameSlug(fallbackName));
       setEmail(user.email || "");
     }
 
     if (user) {
-      const statsData = getUserCommunityStats(user.uid);
+      const currentName = userProfile?.displayName || user.displayName || "";
+      const statsData = getUserCommunityStats(user.uid, currentName);
       setMyStats(statsData);
-      setMyPosts(getUserPosts(user.uid, true));
+      setMyPosts(getUserPosts(user.uid, true, currentName));
       setMyComments(getUserComments(user.uid));
     }
   }, [user, userProfile]);
 
+  // Kendi profil sayfasındayken adres çubuğunu /profil/kullanici-adi olarak tut
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      !isViewingOther &&
+      user &&
+      !user.isAnonymous
+    ) {
+      const cleanSlug = toUsernameSlug(
+        userProfile?.username || userProfile?.displayName || user.displayName || ""
+      );
+      if (cleanSlug && cleanSlug !== "dusunur") {
+        const expectedPath = `/profil/${encodeURIComponent(cleanSlug)}`;
+        if (window.location.pathname !== expectedPath || window.location.search) {
+          window.history.replaceState(null, "", expectedPath);
+        }
+      }
+    }
+  }, [isViewingOther, user, userProfile]);
+
   // Canlı Dinleme: Forumdaki veri değişiklikleri anında profile yansısın
   useEffect(() => {
     if (user) {
+      const currentName = userProfile?.displayName || user.displayName || "";
       const unsub = subscribeToForumPosts(() => {
-        setMyStats(getUserCommunityStats(user.uid));
-        setMyPosts(getUserPosts(user.uid, true));
+        setMyStats(getUserCommunityStats(user.uid, currentName));
+        setMyPosts(getUserPosts(user.uid, true, currentName));
         setMyComments(getUserComments(user.uid));
       }, user.uid);
       return () => unsub();
     }
-  }, [user]);
+  }, [user, userProfile]);
 
   // Kendi Fikrini Silme
   const handleDeleteMyPost = async (postId: string, title: string) => {
@@ -144,7 +193,7 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
         await deleteForumPost(postId, user.uid);
         setMyPosts((prev) => prev.filter((p) => p.id !== postId));
         setMyComments(getUserComments(user.uid));
-        setMyStats(getUserCommunityStats(user.uid));
+        setMyStats(getUserCommunityStats(user.uid, displayName));
         showToast("Fikriniz başarıyla silindi.");
       } catch (err: any) {
         showToast("Silme hatası: " + (err?.message || ""));
@@ -159,8 +208,8 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
       try {
         await deleteForumComment(postId, commentId, user.uid);
         setMyComments((prev) => prev.filter((c) => c.commentId !== commentId));
-        setMyPosts(getUserPosts(user.uid, true));
-        setMyStats(getUserCommunityStats(user.uid));
+        setMyPosts(getUserPosts(user.uid, true, displayName));
+        setMyStats(getUserCommunityStats(user.uid, displayName));
         showToast("Yorumunuz başarıyla silindi.");
       } catch (err: any) {
         showToast("Silme hatası: " + (err?.message || ""));
@@ -168,7 +217,7 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
     }
   };
 
-  // Başka Bir Kullanıcının Profilini Çek
+  // Başka Bir Kullanıcının Profilini Çek (Kullanıcı Adı veya ID ile)
   useEffect(() => {
     if (isViewingOther && queryId) {
       setLoadingTarget(true);
@@ -177,8 +226,21 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
         .then((prof) => {
           if (prof) {
             setTargetUser(prof);
-            setTargetStats(getUserCommunityStats(queryId));
-            setTargetPosts(getUserPosts(queryId));
+            setTargetStats(getUserCommunityStats(prof.uid, prof.displayName));
+            setTargetPosts(getUserPosts(prof.uid, false, prof.displayName));
+
+            // Adres çubuğunda ID (?id=...) varsa otomatik olarak kullanıcı adına (/profil/kullanici-adi) çevir
+            if (typeof window !== "undefined") {
+              const cleanPath = getProfileUrl({
+                username: prof.username,
+                displayName: prof.displayName,
+                uid: prof.uid,
+              });
+              const targetUrl = isPreviewMode ? `${cleanPath}?onizleme=1` : cleanPath;
+              if (window.location.pathname + window.location.search !== targetUrl) {
+                window.history.replaceState(null, "", targetUrl);
+              }
+            }
           } else {
             setTargetNotFound(true);
           }
@@ -190,7 +252,7 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
           setLoadingTarget(false);
         });
     }
-  }, [isViewingOther, queryId]);
+  }, [isViewingOther, queryId, isPreviewMode]);
 
   // Fotoğraf Dosyası Yükleme (Otomatik Sıkıştırma + Cloudinary Bulut Yükleme)
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -214,8 +276,10 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
       // Kullanıcı kayıtlıysa profil fotoğrafını anında kaydet
       if (user && (displayName.trim() || userProfile?.displayName)) {
         try {
+          const finalName = displayName.trim() || userProfile?.displayName || "Düşünür";
           await updateProfileData({
-            displayName: displayName.trim() || userProfile?.displayName || "Düşünür",
+            displayName: finalName,
+            username: toUsernameSlug(username.trim() || finalName),
             profession: profession.trim() || userProfile?.profession || "Düşünce Kaşifi",
             bio: bio.trim(),
             photoURL: result.url,
@@ -249,8 +313,9 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
     }
     setSaving(true);
     try {
+      const cleanUserSlug = toUsernameSlug(username.trim() || displayName.trim());
       const textModeration = await moderateTextWithAI(
-        `${displayName} ${profession} ${bio}`,
+        `${displayName} ${cleanUserSlug} ${profession} ${bio}`,
         "profile"
       );
       if (!textModeration.isAllowed) {
@@ -263,8 +328,10 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
         return;
       }
 
+      setUsername(cleanUserSlug);
       await updateProfileData({
         displayName: displayName.trim(),
+        username: cleanUserSlug,
         profession: profession.trim() || "Düşünce Kaşifi",
         bio: bio.trim(),
         photoURL: photoURL.trim() || "",
@@ -272,7 +339,10 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
         instagram: instagram.trim(),
         youtube: youtube.trim(),
       });
-      showToast("Profiliniz başarıyla kaydedildi!");
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", `/profil/${encodeURIComponent(cleanUserSlug)}`);
+      }
+      showToast("Profiliniz ve kullanıcı adınız başarıyla kaydedildi!");
     } catch (err: any) {
       console.error(err);
       alert("Profil güncellenirken hata oluştu: " + (err.message || ""));
@@ -281,12 +351,17 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
     }
   };
 
-  // Profil Linkini Kopyala
-  const handleCopyProfileLink = (uidToCopy: string) => {
+  // Profil Linkini Kullanıcı Adıyla Kopyala
+  const handleCopyProfileLink = (profileParams: {
+    username?: string;
+    displayName?: string;
+    uid?: string;
+  }) => {
     if (typeof window !== "undefined") {
-      const url = `${window.location.origin}/profil?id=${uidToCopy}`;
+      const path = getProfileUrl(profileParams);
+      const url = `${window.location.origin}${path}`;
       navigator.clipboard.writeText(url).then(() => {
-        showToast("Profil bağlantısı panoya kopyalandı!");
+        showToast(`Profil bağlantısı kopyalandı: ${path}`);
       }).catch(() => {
         showToast("Bağlantı kopyalanamadı.");
       });
@@ -353,6 +428,17 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
                   </div>
 
                   <h1 className="profile-user-name">{targetUser.displayName || "Düşünür"}</h1>
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      color: "#e0b878",
+                      fontWeight: 500,
+                      marginBottom: "6px",
+                      opacity: 0.9,
+                    }}
+                  >
+                    @{toUsernameSlug(targetUser.username || targetUser.displayName)}
+                  </div>
                   <div className="profile-profession-tag">
                     <Briefcase size={13} />
                     <span>{targetUser.profession || "Düşünce Kaşifi"}</span>
@@ -419,9 +505,29 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
 
                   {/* Aksiyonlar */}
                   <div className="profile-quick-actions">
+                    {user && targetUser.uid === user.uid && (
+                      <Link
+                        href={getProfileUrl({
+                          username: targetUser.username,
+                          displayName: targetUser.displayName,
+                          uid: targetUser.uid,
+                        })}
+                        className="btn-primary-solid w-100 text-center"
+                        style={{ display: "inline-flex", justifyContent: "center", alignItems: "center", gap: "8px" }}
+                      >
+                        <FileEdit size={15} />
+                        <span>Profilimi Düzenlemeye Dön</span>
+                      </Link>
+                    )}
                     <button
                       type="button"
-                      onClick={() => handleCopyProfileLink(targetUser.uid)}
+                      onClick={() =>
+                        handleCopyProfileLink({
+                          username: targetUser.username,
+                          displayName: targetUser.displayName,
+                          uid: targetUser.uid,
+                        })
+                      }
                       className="btn-white-outline w-100"
                       style={{ display: "inline-flex", justifyContent: "center", alignItems: "center", gap: "8px" }}
                     >
@@ -619,6 +725,17 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
                     </div>
 
                     <h1 className="profile-user-name">{displayName || "Düşünür"}</h1>
+                    <div
+                      style={{
+                        fontSize: "13px",
+                        color: "#e0b878",
+                        fontWeight: 500,
+                        marginBottom: "6px",
+                        opacity: 0.9,
+                      }}
+                    >
+                      @{toUsernameSlug(username || displayName)}
+                    </div>
                     <div className="profile-profession-tag">
                       <Briefcase size={13} />
                       <span>{profession || "Düşünce Kaşifi"}</span>
@@ -720,7 +837,13 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
                     <div className="profile-quick-actions">
                       <button
                         type="button"
-                        onClick={() => handleCopyProfileLink(user.uid)}
+                        onClick={() =>
+                          handleCopyProfileLink({
+                            username: username || userProfile?.username,
+                            displayName: displayName || userProfile?.displayName,
+                            uid: user.uid,
+                          })
+                        }
                         className="btn-white-outline w-100"
                         style={{ display: "inline-flex", justifyContent: "center", alignItems: "center", gap: "8px" }}
                         title="Diğer kullanıcılarla paylaşmak için profil linkini kopyalayın"
@@ -730,7 +853,11 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
                       </button>
 
                       <Link
-                        href={`/profil?id=${user.uid}`}
+                        href={`${getProfileUrl({
+                          username: username || userProfile?.username,
+                          displayName: displayName || userProfile?.displayName,
+                          uid: user.uid,
+                        })}?onizleme=1`}
                         className="btn-white-outline w-100 text-center"
                         style={{ display: "inline-flex", justifyContent: "center", alignItems: "center", gap: "8px" }}
                         title="Diğer kullanıcıların profilinizi nasıl gördüğünü test edin"
@@ -814,10 +941,32 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
                               type="text"
                               required
                               value={displayName}
-                              onChange={(e) => setDisplayName(e.target.value)}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setDisplayName(val);
+                                if (!username || username === toUsernameSlug(displayName)) {
+                                  setUsername(toUsernameSlug(val));
+                                }
+                              }}
                               placeholder="Örn: Dr. Selin Yılmaz"
                               className="form-control"
                             />
+                          </div>
+
+                          {/* Kullanıcı Adı (Profil Bağlantısı) */}
+                          <div className="form-group">
+                            <label htmlFor="edit-username">Kullanıcı Adı (Profil Bağlantınız)</label>
+                            <input
+                              id="edit-username"
+                              type="text"
+                              value={username}
+                              onChange={(e) => setUsername(toUsernameSlug(e.target.value))}
+                              placeholder="Örn: dr-selin-yilmaz"
+                              className="form-control"
+                            />
+                            <span className="social-field-hint">
+                              Profil adresiniz: <strong>/profil/{toUsernameSlug(username || displayName || "kullanici-adi")}</strong>
+                            </span>
                           </div>
 
                           {/* Meslek */}

@@ -34,6 +34,7 @@ import { subscribeToRealUserCount, formatCommunityStat } from "../../lib/communi
 import { triggerHoneypotTrap, checkCrisisAndSelfHarm, CrisisHelpInfo } from "../../lib/anti-spam";
 import { uploadCompressedImage, formatFileSize } from "../../lib/image-upload";
 import { analyzeTextProfanitySync } from "../../lib/ai-moderation";
+import { getProfileUrl } from "../../lib/profile-data";
 import {
   MessageSquareQuote,
   Plus,
@@ -644,7 +645,11 @@ export default function ForumPage() {
               </div>
               <div className="user-status-actions-group">
                 <Link
-                  href="/profil"
+                  href={getProfileUrl({
+                    username: userProfile?.username,
+                    displayName: userProfile?.displayName || getUserDisplayName(),
+                    uid: user.uid,
+                  })}
                   className="btn-white-outline"
                   style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "8px 14px", fontSize: "13px" }}
                   title="Profilini Gör & Düzenle"
@@ -842,7 +847,7 @@ export default function ForumPage() {
                             </div>
                           ) : (
                             <Link
-                              href={`/profil?id=${post.authorId}`}
+                              href={getProfileUrl({ authorName: post.authorName, authorId: post.authorId })}
                               className="post-author-link"
                               title={`${post.authorName} Profilini Görüntüle`}
                               onClick={(e) => e.stopPropagation()}
@@ -870,7 +875,7 @@ export default function ForumPage() {
                                 <span className="author-name">Anonim Düşünür</span>
                               ) : (
                                 <Link
-                                  href={`/profil?id=${post.authorId}`}
+                                  href={getProfileUrl({ authorName: post.authorName, authorId: post.authorId })}
                                   className="author-name author-name-link"
                                   title={`${post.authorName} Profilini Görüntüle`}
                                   onClick={(e) => e.stopPropagation()}
@@ -1184,7 +1189,7 @@ export default function ForumPage() {
                                         </div>
                                       ) : (
                                         <Link
-                                          href={`/profil?id=${comm.authorId}`}
+                                          href={getProfileUrl({ authorName: comm.authorName, authorId: comm.authorId })}
                                           className="comment-author-link"
                                           title={`${comm.authorName} Profilini Görüntüle`}
                                           onClick={(e) => e.stopPropagation()}
@@ -1210,7 +1215,7 @@ export default function ForumPage() {
                                         <span className="comment-author-name">Anonim Düşünür</span>
                                       ) : (
                                         <Link
-                                          href={`/profil?id=${comm.authorId}`}
+                                          href={getProfileUrl({ authorName: comm.authorName, authorId: comm.authorId })}
                                           className="comment-author-name author-name-link"
                                           title={`${comm.authorName} Profilini Görüntüle`}
                                           onClick={(e) => e.stopPropagation()}

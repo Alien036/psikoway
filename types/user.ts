@@ -1,5 +1,6 @@
 export interface UserProfile {
   uid: string;
+  username?: string;   // Kullanıcı adı / Profil URL slug'ı (örn: dr-selin-yilmaz)
   email: string;
   displayName: string;
   photoURL?: string;
