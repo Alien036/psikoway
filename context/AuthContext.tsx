@@ -14,7 +14,7 @@ import {
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, googleProvider, firestore } from "../lib/firebase";
 import { UserProfile } from "../types/user";
-import { getUserProfile, saveUserProfile, migrateAllUsersFromRTDBToFirestore } from "../lib/profile-data";
+import { getUserProfile, saveUserProfile, migrateAllUsersFromRTDBToFirestore, toUsernameSlug, isUsernameTaken } from "../lib/profile-data";
 import { isDisposableEmail } from "../lib/anti-spam";
 
 interface AuthContextType {
@@ -22,7 +22,7 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   signInWithEmail: (email: string, pass: string) => Promise<User | null>;
-  signUpWithEmail: (email: string, pass: string, displayName: string, profession?: string) => Promise<User | null>;
+  signUpWithEmail: (email: string, pass: string, displayName: string, profession?: string, username?: string) => Promise<User | null>;
   signInWithGoogle: () => Promise<User | null>;
   signInGuest: () => Promise<User | null>;
   logout: () => Promise<void>;
@@ -162,16 +162,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     email: string, 
     pass: string, 
     displayName: string, 
-    profession?: string
+    profession?: string,
+    username?: string
   ): Promise<User | null> => {
     const trimmedEmail = email.trim();
     if (isDisposableEmail(trimmedEmail)) {
       throw new Error("Geçici ve tek kullanımlık e-posta adresleri (temp-mail) ile kayıt olunamaz. Lütfen kalıcı ve geçerli bir e-posta adresi kullanın.");
     }
 
+    const cleanName = displayName.trim() || "PsikoWay Üyesi";
+    const cleanUsername = toUsernameSlug(username?.trim() || cleanName);
+
+    const taken = await isUsernameTaken(cleanUsername);
+    if (taken) {
+      throw new Error(`"@${cleanUsername}" kullanıcı adı zaten başka bir üye tarafından kullanılıyor. Lütfen farklı bir kullanıcı adı seçin.`);
+    }
+
     try {
       const res = await createUserWithEmailAndPassword(auth, trimmedEmail, pass);
-      const cleanName = displayName.trim() || "PsikoWay Üyesi";
       
       // Firebase Auth Profilini Güncelle
       await updateProfile(res.user, { displayName: cleanName });
@@ -179,6 +187,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Veritabanı profilini eksiksiz kaydet
       const newProf: UserProfile = {
         uid: res.user.uid,
+        username: cleanUsername,
         email: email.trim(),
         displayName: cleanName,
         photoURL: "",

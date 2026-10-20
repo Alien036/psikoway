@@ -49,6 +49,43 @@ export const getProfileUrl = (params: {
 };
 
 /**
+ * Belirtilen kullanıcı adının başka bir üye tarafından alınıp alınmadığını kontrol eder.
+ */
+export const isUsernameTaken = async (
+  rawUsername: string,
+  excludeUid?: string
+): Promise<boolean> => {
+  const targetSlug = toUsernameSlug(rawUsername);
+  if (!targetSlug || targetSlug === "dusunur") return false;
+
+  // 1. Seed / Kurucu kullanıcılarda kontrol et
+  for (const [seedKey, seedVal] of Object.entries(SEED_COMMUNITY_USERS)) {
+    const seedUid = seedVal.uid || seedKey;
+    if (excludeUid && seedUid === excludeUid) continue;
+    if (toUsernameSlug(seedVal.username || seedVal.displayName) === targetSlug) {
+      return true;
+    }
+  }
+
+  // 2. Cloud Firestore 'users' koleksiyonunda kontrol et
+  try {
+    const usersCol = collection(firestore, "users");
+    const qUsername = query(usersCol, where("username", "==", targetSlug));
+    const qSnap = await getDocs(qUsername);
+    for (const d of qSnap.docs) {
+      const uid = d.data()?.uid || d.id;
+      if (!excludeUid || uid !== excludeUid) {
+        return true;
+      }
+    }
+  } catch (err) {
+    console.warn("isUsernameTaken check warning:", err);
+  }
+
+  return false;
+};
+
+/**
  * Emoji karakterini yüksek kaliteli, her tarayıcıda çalışan SVG Data URL'sine dönüştürür.
  */
 export const createEmojiAvatar = (emoji: string, bg: string = "#1e293b"): string => {

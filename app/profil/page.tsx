@@ -21,7 +21,8 @@ import {
   getYouTubeUrl,
   getYouTubeHandle,
   toUsernameSlug,
-  getProfileUrl
+  getProfileUrl,
+  isUsernameTaken
 } from "../../lib/profile-data";
 import { deleteForumPost, deleteForumComment, subscribeToForumPosts } from "../../lib/forum-data";
 import { uploadCompressedImage, formatFileSize } from "../../lib/image-upload";
@@ -314,6 +315,21 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
     setSaving(true);
     try {
       const cleanUserSlug = toUsernameSlug(username.trim() || displayName.trim());
+      if (!cleanUserSlug || cleanUserSlug.length < 3 || cleanUserSlug === "dusunur") {
+        alert("Lütfen en az 3 karakterli geçerli bir kullanıcı adı giriniz.");
+        setSaving(false);
+        return;
+      }
+
+      const taken = await isUsernameTaken(cleanUserSlug, user?.uid);
+      if (taken) {
+        const takenMsg = `"@${cleanUserSlug}" kullanıcı adı zaten başka bir üye tarafından kullanılıyor. Lütfen farklı bir kullanıcı adı seçin.`;
+        showToast(takenMsg);
+        alert(takenMsg);
+        setSaving(false);
+        return;
+      }
+
       const textModeration = await moderateTextWithAI(
         `${displayName} ${cleanUserSlug} ${profession} ${bio}`,
         "profile"

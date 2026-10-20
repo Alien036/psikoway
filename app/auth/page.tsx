@@ -7,6 +7,7 @@ import Image from "next/image";
 import { 
   Globe, 
   User, 
+  AtSign,
   MessageSquareQuote, 
   Mail, 
   Lock, 
@@ -22,6 +23,8 @@ import {
 import BackgroundVideo from "../../components/BackgroundVideo";
 import { useAuth } from "../../context/AuthContext";
 import { triggerHoneypotTrap, isDisposableEmail } from "../../lib/anti-spam";
+import { toUsernameSlug } from "../../lib/profile-data";
+import { analyzeTextProfanitySync } from "../../lib/ai-moderation";
 
 function AuthForm() {
   const router = useRouter();
@@ -43,6 +46,8 @@ function AuthForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
+  const [usernameEdited, setUsernameEdited] = useState(false);
   const [profession, setProfession] = useState("");
   const [honeypot, setHoneypot] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -93,7 +98,17 @@ function AuthForm() {
       return;
     }
     if (!displayName.trim()) {
-      setError("Lütfen adınızı ve soyadınızı belirtin.");
+      setError("Lütfen görünen isminizi belirtin.");
+      return;
+    }
+    const cleanUsername = toUsernameSlug(username.trim() || displayName.trim());
+    if (!cleanUsername || cleanUsername.length < 3 || cleanUsername === "dusunur") {
+      setError("Lütfen en az 3 karakterli geçerli bir kullanıcı adı belirleyin.");
+      return;
+    }
+    const profanityCheck = analyzeTextProfanitySync(`${displayName} ${cleanUsername} ${profession}`);
+    if (!profanityCheck.isAllowed) {
+      setError(profanityCheck.reason || "Görünen isim veya kullanıcı adında uygunsuz ifadeler kullanılamaz.");
       return;
     }
     if (password.length < 6) {
@@ -103,7 +118,7 @@ function AuthForm() {
     setLoading(true);
     setError("");
     try {
-      await signUpWithEmail(email, password, displayName, profession);
+      await signUpWithEmail(email, password, displayName.trim(), profession, cleanUsername);
       router.push("/forum"); // Kayıt olan kullanıcıyı doğrudan foruma yönlendir
     } catch (err: any) {
       setError(translateFirebaseError(err.message || ""));
@@ -257,19 +272,48 @@ function AuthForm() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="reg-name">Ad Soyad / Takma Ad *</label>
+            <label htmlFor="reg-name">Görünen İsim (Ad Soyad) *</label>
             <div className="input-with-icon">
               <User size={16} className="input-field-icon" />
               <input
                 id="reg-name"
                 type="text"
                 required
-                placeholder="Örn: Dr. Selin Yılmaz veya Deniz"
+                placeholder="Örn: Dr. Selin Yılmaz"
                 value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setDisplayName(val);
+                  if (!usernameEdited) {
+                    setUsername(val ? toUsernameSlug(val) : "");
+                  }
+                }}
                 className="form-control with-icon"
               />
             </div>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="reg-username">Kullanıcı Adı *</label>
+            <div className="input-with-icon">
+              <AtSign size={16} className="input-field-icon" />
+              <input
+                id="reg-username"
+                type="text"
+                required
+                placeholder="Örn: dr-selin-yilmaz"
+                value={username}
+                onChange={(e) => {
+                  setUsernameEdited(true);
+                  const raw = e.target.value;
+                  setUsername(raw ? toUsernameSlug(raw) : "");
+                }}
+                className="form-control with-icon"
+              />
+            </div>
+            <span style={{ display: "block", marginTop: "5px", fontSize: "11.5px", color: "rgba(255,255,255,0.55)" }}>
+              Profil bağlantınız: <strong style={{ color: "#e0b878" }}>/profil/{username || "kullanici-adi"}</strong>
+            </span>
           </div>
 
           <div className="form-group">
