@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { analyzeTextProfanitySync } from "../../../lib/ai-moderation";
 
 const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "dsaqzywd";
 const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY || "784872741448477";
@@ -14,6 +15,15 @@ export async function POST(request: NextRequest) {
     if (!file) {
       return NextResponse.json(
         { error: "Yüklenecek fotoğraf dosyası bulunamadı." },
+        { status: 400 }
+      );
+    }
+
+    // Dosya adı küfür / +18 kontrolü
+    const nameCheck = analyzeTextProfanitySync(file.name || "");
+    if (!nameCheck.isAllowed) {
+      return NextResponse.json(
+        { error: nameCheck.reason || "Uygunsuz dosya adı nedeniyle yükleme reddedildi." },
         { status: 400 }
       );
     }

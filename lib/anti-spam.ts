@@ -1,6 +1,7 @@
 import { doc, getDoc, setDoc, collection, onSnapshot, updateDoc, deleteDoc } from "firebase/firestore";
 import { firestore } from "./firebase";
 import { SecurityAlert } from "../types/admin";
+import { analyzeTextProfanitySync } from "./ai-moderation";
 
 const FINGERPRINT_KEY = "psikoway_client_fingerprint_v1";
 const SHADOWBAN_KEY = "psikoway_shadowbanned_v1";
@@ -517,18 +518,29 @@ const SEVERE_PROFANITY_PATTERNS = [
 ];
 
 /**
- * Ağır hakaret ve küfür kontrolü
+ * Ağır hakaret, küfür ve +18 müstehcen ifade kontrolü (Yapay Zeka NLP De-obfuscation Destekli)
  */
 export const checkProfanityAndHarassment = (
   text: string
-): { hasViolation: boolean; reason?: string } => {
+): { hasViolation: boolean; reason?: string; flaggedTerms?: string[] } => {
   if (!text) return { hasViolation: false };
+
+  const aiCheck = analyzeTextProfanitySync(text);
+  if (!aiCheck.isAllowed) {
+    return {
+      hasViolation: true,
+      reason:
+        aiCheck.reason ||
+        "🛡️ Yapay Zeka Sansür Filtresi: Paylaşımınız topluluk kurallarımıza aykırı ve kırıcı ifadeler içermektedir. Lütfen yapıcı ve saygılı bir dil kullanın.",
+      flaggedTerms: aiCheck.flaggedTerms,
+    };
+  }
 
   for (const pattern of SEVERE_PROFANITY_PATTERNS) {
     if (pattern.test(text)) {
       return {
         hasViolation: true,
-        reason: "Paylaşımınız topluluk kurallarımıza aykırı ve kırıcı ifadeler içermektedir. Lütfen yapıcı ve saygılı bir dil kullanın.",
+        reason: "🛡️ Yapay Zeka Sansür Filtresi: Paylaşımınız topluluk kurallarımıza aykırı ve kırıcı ifadeler içermektedir. Lütfen yapıcı ve saygılı bir dil kullanın.",
       };
     }
   }

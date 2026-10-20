@@ -1,6 +1,10 @@
 // lib/image-upload.ts
-// İstemci tarafında (tarayıcıda) fotoğrafları otomatik olarak WebP formatında sıkıştırıp
+// İstemci tarafında (tarayıcıda) fotoğrafları otomatik olarak WebP formatında sıkıştırıp,
+// Yapay Zeka (AI) ile çıplaklık / müstehcenlik ve küfür denetiminden geçirdikten sonra
 // boyutunu %85-%98 oranında küçülten ve Cloudinary bulut depolamasına yükleyen yardımcı katman.
+
+import { moderateImageWithAI } from "./ai-moderation";
+import { recordSecurityAlert, getClientFingerprint } from "./anti-spam";
 
 export interface CompressedUploadResult {
   url: string;
@@ -9,6 +13,7 @@ export interface CompressedUploadResult {
   savedPercent: number;
   width: number;
   height: number;
+  aiVerified?: boolean;
 }
 
 export interface CompressOptions {
@@ -126,7 +131,31 @@ export async function uploadCompressedImage(
       ? Math.round(((originalSize - compressedSize) / originalSize) * 100)
       : 0;
 
-  // 2. Adım: Sıkıştırılmış küçük dosyayı Cloudinary API'sine gönder
+  // 2. Adım: Yapay Zeka (AI) Görsel Moderasyon Denetimi (Çıplaklık / +18 ve Görsel İçi Küfür Kontrolü)
+  const moderationResult = await moderateImageWithAI(dataUrl, file.name);
+  if (!moderationResult.isAllowed) {
+    // Moderasyon ihlalini Admin Güvenlik Bildirimlerine kaydet
+    recordSecurityAlert({
+      id: `alert-img-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      userId: "image-upload-guard",
+      clientFingerprint: getClientFingerprint(),
+      userName: type === "avatar" ? "Profil Fotoğrafı Yükleyici" : "Forum Görsel Yükleyici",
+      reason: `YAPAY ZEKA GÖRSEL ENGELİ (${moderationResult.category.toUpperCase()}): ${moderationResult.reason || "Uygunsuz görsel engellendi."}`,
+      actionType: "post",
+      contentSnippet: `Dosya: ${file.name} | Tür: ${type} | Ten Oranı: %${moderationResult.skinRatio || 0}`,
+      postTitle: "Yapay Zeka Görsel Sansür Kalkanı",
+      timestamp: new Date().toISOString(),
+      status: "resolved",
+      attemptsInWindow: 1,
+    }).catch(() => {});
+
+    throw new Error(
+      moderationResult.reason ||
+        "🛡️ Yapay Zeka Güvenlik Filtresi: Yüklemeye çalıştığınız fotoğrafta çıplaklık (+18) veya uygunsuz içerik tespit edildiği için yükleme engellendi."
+    );
+  }
+
+  // 3. Adım: Onaylanmış ve sıkıştırılmış küçük dosyayı Cloudinary API'sine gönder
   const folder = type === "avatar" ? "psikoway/avatars" : "psikoway/forum";
   const compressedFile = new File(
     [blob],
@@ -154,6 +183,7 @@ export async function uploadCompressedImage(
           savedPercent,
           width: data.width || width,
           height: data.height || height,
+          aiVerified: true,
         };
       }
     } else {
@@ -172,5 +202,6 @@ export async function uploadCompressedImage(
     savedPercent,
     width,
     height,
+    aiVerified: true,
   };
 }

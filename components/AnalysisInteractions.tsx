@@ -28,6 +28,7 @@ import {
 } from "firebase/firestore";
 import { firestore } from "../lib/firebase";
 import { useAuth } from "../context/AuthContext";
+import { moderateTextWithAI } from "../lib/ai-moderation";
 
 interface AnalysisCommentItem {
   id: string;
@@ -204,6 +205,16 @@ export default function AnalysisInteractions({
       const authorName = user 
         ? getUserDisplayName() 
         : (guestName.trim() || "Misafir Okur");
+
+      const moderationCheck = await moderateTextWithAI(`${authorName} ${trimmed}`, "comment");
+      if (!moderationCheck.isAllowed) {
+        alert(
+          moderationCheck.reason ||
+            "🛡️ Yapay Zeka Sansür Filtresi: Yorumunuzda küfür veya uygunsuz ifadeler tespit edildiği için paylaşılamadı."
+        );
+        setIsSubmitting(false);
+        return;
+      }
 
       const authorAvatar = user?.photoURL || userProfile?.photoURL || "";
 

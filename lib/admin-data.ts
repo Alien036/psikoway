@@ -1,13 +1,24 @@
 import { 
+  collection,
   doc, 
   getDoc, 
+  getDocs,
   setDoc, 
   updateDoc, 
-  deleteDoc 
+  deleteDoc,
+  onSnapshot,
+  query,
+  where
 } from "firebase/firestore";
 import { firestore } from "./firebase";
 import { BannedUser, UserWarning } from "../types/admin";
-import { getStoredPosts, saveStoredPosts, deleteLocalShadowPost } from "./forum-data";
+import { 
+  getStoredPosts, 
+  saveStoredPosts, 
+  deleteLocalShadowPost,
+  markPostDeletedLocally,
+  markCommentDeletedLocally
+} from "./forum-data";
 import { ForumPost } from "../types/forum";
 
 const DEFAULT_ADMIN_PASSWORD = "12345678";

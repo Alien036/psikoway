@@ -23,6 +23,7 @@ import {
 } from "../../lib/profile-data";
 import { deleteForumPost, deleteForumComment, subscribeToForumPosts } from "../../lib/forum-data";
 import { uploadCompressedImage, formatFileSize } from "../../lib/image-upload";
+import { moderateTextWithAI } from "../../lib/ai-moderation";
 import { UserProfile, UserStats } from "../../types/user";
 import { ForumPost } from "../../types/forum";
 import { InstagramIcon, YouTubeIcon } from "../../components/SocialIcons";
@@ -201,13 +202,13 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
 
     setUploadingPhoto(true);
     setPhotoCompressInfo(null);
-    showToast("Fotoğraf sıkıştırılıyor ve buluta yükleniyor...");
+    showToast("🤖 Yapay zeka fotoğrafı inceliyor ve yüklüyor...");
 
     try {
       const result = await uploadCompressedImage(file, "avatar");
       setPhotoURL(result.url);
 
-      const infoText = `${formatFileSize(result.originalSize)} → ${formatFileSize(result.compressedSize)} (%${result.savedPercent} sıkıştırıldı)`;
+      const infoText = `🛡️ Yapay Zeka Onaylı • ${formatFileSize(result.originalSize)} → ${formatFileSize(result.compressedSize)} (%${result.savedPercent} sıkıştırıldı)`;
       setPhotoCompressInfo(infoText);
 
       // Kullanıcı kayıtlıysa profil fotoğrafını anında kaydet
@@ -222,7 +223,7 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
             instagram: instagram.trim(),
             youtube: youtube.trim(),
           });
-          showToast(`Profil fotoğrafı sıkıştırılıp yüklendi! (${infoText})`);
+          showToast(`Profil fotoğrafı yapay zeka onayından geçti ve kaydedildi!`);
         } catch {
           showToast("Fotoğraf yüklendi! Kaydetmek için 'Değişiklikleri Kaydet'e basın.");
         }
@@ -230,7 +231,9 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
         showToast("Fotoğraf yüklendi! Kaydetmek için 'Değişiklikleri Kaydet'e basın.");
       }
     } catch (err: any) {
-      alert(err?.message || "Fotoğraf yüklenirken bir hata oluştu.");
+      const errMsg = err?.message || "Fotoğraf yüklenirken bir hata oluştu.";
+      showToast(errMsg);
+      alert(errMsg);
     } finally {
       setUploadingPhoto(false);
       e.target.value = "";
@@ -246,6 +249,20 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
     }
     setSaving(true);
     try {
+      const textModeration = await moderateTextWithAI(
+        `${displayName} ${profession} ${bio}`,
+        "profile"
+      );
+      if (!textModeration.isAllowed) {
+        const msg =
+          textModeration.reason ||
+          "🛡️ Yapay Zeka Sansür Filtresi: Profil bilgilerinizde uygunsuz veya küfürlü ifadeler tespit edildi.";
+        showToast(msg);
+        alert(msg);
+        setSaving(false);
+        return;
+      }
+
       await updateProfileData({
         displayName: displayName.trim(),
         profession: profession.trim() || "Düşünce Kaşifi",

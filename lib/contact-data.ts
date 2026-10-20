@@ -131,3 +131,30 @@ export const deleteContactMessage = async (messageId: string): Promise<void> => 
   }
 };
 
+/**
+ * Admin tarafından birden fazla iletişim/randevu mesajını toplu silme
+ */
+export const bulkDeleteContactMessages = async (messageIds: string[]): Promise<void> => {
+  if (!messageIds || messageIds.length === 0) return;
+  const idSet = new Set(messageIds);
+
+  for (const id of messageIds) {
+    try {
+      const msgRef = doc(firestore, CONTACT_COLLECTION, id);
+      await deleteDoc(msgRef);
+    } catch (e) {
+      console.warn("Firestore bulk message delete error:", e);
+    }
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem(LOCAL_STORAGE_KEY) || "[]";
+      const list: ContactMessage[] = JSON.parse(raw);
+      const filtered = list.filter((m) => !idSet.has(m.id));
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(filtered));
+    } catch {}
+  }
+};
+
+

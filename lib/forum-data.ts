@@ -22,8 +22,51 @@ import {
   checkCrisisAndSelfHarm,
   recordSecurityAlert
 } from "./anti-spam";
+import { moderateTextWithAI, moderateImageWithAI } from "./ai-moderation";
 
 const SHADOW_POSTS_STORAGE_KEY = "psikoway_local_shadow_posts_v1";
+const DELETED_POST_IDS_KEY = "psikoway_deleted_post_ids_v1";
+const DELETED_COMMENT_IDS_KEY = "psikoway_deleted_comment_ids_v1";
+
+export const getDeletedPostIds = (): Set<string> => {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(DELETED_POST_IDS_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+};
+
+export const markPostDeletedLocally = (postId: string): void => {
+  if (typeof window === "undefined" || !postId) return;
+  try {
+    const set = getDeletedPostIds();
+    set.add(postId);
+    localStorage.setItem(DELETED_POST_IDS_KEY, JSON.stringify(Array.from(set)));
+  } catch {}
+};
+
+export const getDeletedCommentIds = (): Set<string> => {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(DELETED_COMMENT_IDS_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+};
+
+export const markCommentDeletedLocally = (commentId: string): void => {
+  if (typeof window === "undefined" || !commentId) return;
+  try {
+    const set = getDeletedCommentIds();
+    set.add(commentId);
+    localStorage.setItem(DELETED_COMMENT_IDS_KEY, JSON.stringify(Array.from(set)));
+  } catch {}
+};
 
 export const getLocalShadowPosts = (): ForumPost[] => {
   if (typeof window === "undefined") return [];
@@ -340,11 +383,14 @@ function normalizePost(raw: any, docId?: string): ForumPost {
  */
 export const seedInitialPostsToFirestore = async (): Promise<void> => {
   try {
+    const deletedPosts = getDeletedPostIds();
     const colRef = collection(firestore, FORUM_COLLECTION);
     const snapshot = await getDocs(colRef);
     if (snapshot.empty) {
       for (const p of INITIAL_FORUM_POSTS) {
-        await setDoc(doc(firestore, FORUM_COLLECTION, p.id), sanitizeForFirestore(p));
+        if (!deletedPosts.has(p.id)) {
+          await setDoc(doc(firestore, FORUM_COLLECTION, p.id), sanitizeForFirestore(p));
+        }
       }
     }
   } catch (err) {
@@ -362,20 +408,32 @@ export const getStoredPosts = (): ForumPost[] => {
     return INITIAL_FORUM_POSTS;
   }
   try {
+    const deletedPosts = getDeletedPostIds();
+    const deletedComments = getDeletedCommentIds();
     const raw = localStorage.getItem(STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : [];
-    const baseList: ForumPost[] = Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_FORUM_POSTS;
+    const parsed = raw !== null ? JSON.parse(raw) : null;
+    const baseList: ForumPost[] = Array.isArray(parsed) ? parsed : INITIAL_FORUM_POSTS;
 
     const localShadow = getLocalShadowPosts();
-    if (!localShadow || localShadow.length === 0) return baseList;
-
     const postMap = new Map<string, ForumPost>();
-    baseList.forEach((p) => postMap.set(p.id, p));
-    localShadow.forEach((lp) => {
-      if (!postMap.has(lp.id)) {
-        postMap.set(lp.id, lp);
+    baseList.forEach((p) => {
+      if (!deletedPosts.has(p.id)) {
+        postMap.set(p.id, {
+          ...p,
+          comments: (p.comments || []).filter((c) => !deletedComments.has(c.id)),
+        });
       }
     });
+    if (localShadow && localShadow.length > 0) {
+      localShadow.forEach((lp) => {
+        if (!deletedPosts.has(lp.id) && !postMap.has(lp.id)) {
+          postMap.set(lp.id, {
+            ...lp,
+            comments: (lp.comments || []).filter((c) => !deletedComments.has(c.id)),
+          });
+        }
+      });
+    }
     return Array.from(postMap.values());
   } catch (e) {
     console.error("Failed to load forum posts from storage:", e);
@@ -406,19 +464,28 @@ export const filterPostsForViewer = (
   viewerUserId?: string,
   isAdmin: boolean = false
 ): ForumPost[] => {
-  const clientFp = typeof window !== "undefined" ? getClientFingerprint() : "";
+  const deletedPosts = getDeletedPostIds();
+  const deletedComments = getDeletedCommentIds();
 
   // Yerel gölge gönderilerini de birleştir (kullanıcı veya yönetici sayfayı yenilese bile gönderisi ekranda kalsın)
   const localShadowPosts = getLocalShadowPosts();
   const postMap = new Map<string, ForumPost>();
 
   posts.forEach((p) => {
-    postMap.set(p.id, p);
+    if (!deletedPosts.has(p.id)) {
+      postMap.set(p.id, {
+        ...p,
+        comments: (p.comments || []).filter((c) => !deletedComments.has(c.id)),
+      });
+    }
   });
 
   localShadowPosts.forEach((lp) => {
-    if (!postMap.has(lp.id)) {
-      postMap.set(lp.id, lp);
+    if (!deletedPosts.has(lp.id) && !postMap.has(lp.id)) {
+      postMap.set(lp.id, {
+        ...lp,
+        comments: (lp.comments || []).filter((c) => !deletedComments.has(c.id)),
+      });
     }
   });
 
@@ -474,6 +541,8 @@ export const subscribeToForumPosts = (
     const unsubscribe = onSnapshot(
       colRef,
       (snapshot) => {
+        const deletedPosts = getDeletedPostIds();
+        const deletedComments = getDeletedCommentIds();
         if (!snapshot.empty) {
           const list: ForumPost[] = [];
           snapshot.forEach((d) => {
@@ -481,7 +550,11 @@ export const subscribeToForumPosts = (
             // Yalnızca başlığı veya içeriği olan geçerli gönderileri listele (bozuk/boş belgeleri ayıkla)
             if (data && (data.title || data.content || d.id)) {
               if (data.title || data.content) {
-                list.push(normalizePost(data, d.id));
+                const normalized = normalizePost(data, d.id);
+                if (!deletedPosts.has(normalized.id)) {
+                  normalized.comments = (normalized.comments || []).filter((c) => !deletedComments.has(c.id));
+                  list.push(normalized);
+                }
               }
             }
           });
@@ -496,9 +569,15 @@ export const subscribeToForumPosts = (
           saveStoredPosts(list);
           callback(filterPostsForViewer(list, viewerUserId, isAdmin));
         } else {
-          seedInitialPostsToFirestore().then(() => {
-            callback(filterPostsForViewer(INITIAL_FORUM_POSTS, viewerUserId, isAdmin));
-          });
+          const remainingSeed = INITIAL_FORUM_POSTS.filter((p) => !deletedPosts.has(p.id));
+          if (remainingSeed.length > 0) {
+            seedInitialPostsToFirestore().then(() => {
+              callback(filterPostsForViewer(remainingSeed, viewerUserId, isAdmin));
+            });
+          } else {
+            saveStoredPosts([]);
+            callback([]);
+          }
         }
       },
       (error) => {
@@ -531,11 +610,54 @@ export const createForumPost = async (
   const currentPosts = getStoredPosts();
   const clientFp = getClientFingerprint();
 
-  // 1. AĞIR KÜFÜR VE HAKARET DENETİMİ
-  const fullText = `${newPostData.title} ${newPostData.content}`;
+  // 1. YAPAY ZEKA DESTEKLİ KÜFÜR, HAKARET VE +18 İÇERİK DENETİMİ
+  const tagsString = Array.isArray(newPostData.tags) ? newPostData.tags.join(" ") : "";
+  const fullText = `${newPostData.title} ${newPostData.content} ${tagsString}`;
   const profanityResult = checkProfanityAndHarassment(fullText);
   if (profanityResult.hasViolation) {
+    recordSecurityAlert({
+      id: `alert-profanity-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      userId: newPostData.authorId,
+      clientFingerprint: clientFp,
+      userName: newPostData.authorName || "PsikoWay Düşünürü",
+      reason: `YAPAY ZEKA KÜFÜR/SANSÜR ENGELİ: Gönderide uygunsuz ifade tespit edildi (${(profanityResult.flaggedTerms || []).join(", ")})`,
+      actionType: "post",
+      contentSnippet: fullText.substring(0, 300),
+      postTitle: newPostData.title,
+      timestamp: new Date().toISOString(),
+      status: "resolved",
+      attemptsInWindow: 1,
+    }).catch(() => {});
     throw new Error(profanityResult.reason || "Paylaşımınız topluluk kurallarımıza aykırı ifadeler içermektedir.");
+  }
+
+  const aiTextCheck = await moderateTextWithAI(fullText, "post");
+  if (!aiTextCheck.isAllowed) {
+    recordSecurityAlert({
+      id: `alert-ai-text-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      userId: newPostData.authorId,
+      clientFingerprint: clientFp,
+      userName: newPostData.authorName || "PsikoWay Düşünürü",
+      reason: `YAPAY ZEKA METİN ENGELİ (${aiTextCheck.category}): ${aiTextCheck.reason || "Uygunsuz metin"}`,
+      actionType: "post",
+      contentSnippet: fullText.substring(0, 300),
+      postTitle: newPostData.title,
+      timestamp: new Date().toISOString(),
+      status: "resolved",
+      attemptsInWindow: 1,
+    }).catch(() => {});
+    throw new Error(aiTextCheck.reason || "Paylaşımınız yapay zeka güvenlik filtresi tarafından engellendi.");
+  }
+
+  // 1.B GÖRSEL VARSA YAPAY ZEKA ÇIPLAKLIK / KÜFÜR DOĞRULAMASI
+  if (newPostData.imageUrl && newPostData.imageUrl.startsWith("data:image/")) {
+    const aiImgCheck = await moderateImageWithAI(newPostData.imageUrl);
+    if (!aiImgCheck.isAllowed) {
+      throw new Error(
+        aiImgCheck.reason ||
+          "🛡️ Yapay Zeka Güvenlik Filtresi: Görselde çıplaklık veya uygunsuz içerik tespit edildiği için paylaşım engellendi."
+      );
+    }
   }
 
   // 2. DIŞ BAĞLANTI (LINK) SINIRLANDIRMASI (En fazla 2 link)
@@ -743,10 +865,28 @@ export const addPostComment = async (
   const currentPosts = getStoredPosts();
   const clientFp = getClientFingerprint();
 
-  // 1. AĞIR KÜFÜR VE HAKARET KONTROLÜ
+  // 1. YAPAY ZEKA DESTEKLİ KÜFÜR VE HAKARET KONTROLÜ
   const profanityResult = checkProfanityAndHarassment(commentData.content);
   if (profanityResult.hasViolation) {
+    recordSecurityAlert({
+      id: `alert-profanity-c-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      userId: commentData.authorId,
+      clientFingerprint: clientFp,
+      userName: commentData.authorName || "PsikoWay Düşünürü",
+      reason: `YAPAY ZEKA YORUM SANSÜR ENGELİ: Yorumda uygunsuz ifade tespit edildi (${(profanityResult.flaggedTerms || []).join(", ")})`,
+      actionType: "comment",
+      contentSnippet: commentData.content.substring(0, 300),
+      postTitle: `Post ID: ${postId}`,
+      timestamp: new Date().toISOString(),
+      status: "resolved",
+      attemptsInWindow: 1,
+    }).catch(() => {});
     throw new Error(profanityResult.reason || "Yorumunuz topluluk kurallarımıza aykırı ifadeler içermektedir.");
+  }
+
+  const aiCommentCheck = await moderateTextWithAI(commentData.content, "comment");
+  if (!aiCommentCheck.isAllowed) {
+    throw new Error(aiCommentCheck.reason || "Yorumunuz yapay zeka güvenlik filtresi tarafından engellendi.");
   }
 
   // 2. DIŞ BAĞLANTI (LINK) SINIRLANDIRMASI (Yorumlarda en fazla 1 link)

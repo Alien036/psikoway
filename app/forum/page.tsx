@@ -33,6 +33,7 @@ import { UserWarning } from "../../types/admin";
 import { subscribeToRealUserCount, formatCommunityStat } from "../../lib/community-stats";
 import { triggerHoneypotTrap, checkCrisisAndSelfHarm, CrisisHelpInfo } from "../../lib/anti-spam";
 import { uploadCompressedImage, formatFileSize } from "../../lib/image-upload";
+import { analyzeTextProfanitySync } from "../../lib/ai-moderation";
 import {
   MessageSquareQuote,
   Plus,
@@ -421,7 +422,12 @@ export default function ForumPage() {
     setIsNewPostModalOpen(true);
   };
 
-  // Gönderi Fotoğrafı Yükleme (Otomatik Sıkıştırma + Cloudinary)
+  // Canlı Yapay Zeka Metin Sansür Denetimi (Başlık + İçerik + Etiketler)
+  const livePostModeration = useMemo(() => {
+    return analyzeTextProfanitySync(`${newTitle} ${newContent} ${newTags}`);
+  }, [newTitle, newContent, newTags]);
+
+  // Gönderi Fotoğrafı Yükleme (Yapay Zeka Çıplaklık/Küfür Denetimi + Otomatik Sıkıştırma + Cloudinary)
   const handlePostImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -433,11 +439,15 @@ export default function ForumPage() {
     try {
       const result = await uploadCompressedImage(file, "forum");
       setNewImageUrl(result.url);
-      const infoText = `${formatFileSize(result.originalSize)} → ${formatFileSize(result.compressedSize)} (%${result.savedPercent} sıkıştırıldı)`;
+      const infoText = `🛡️ Yapay Zeka Onaylı • ${formatFileSize(result.originalSize)} → ${formatFileSize(result.compressedSize)} (%${result.savedPercent} sıkıştırıldı)`;
       setPostImageCompressInfo(infoText);
-      showToast(`Fotoğraf sıkıştırıldı ve eklendi! (${infoText})`);
+      showToast("Fotoğraf yapay zeka güvenlik kontrolünden geçti ve eklendi!");
     } catch (err: any) {
-      setFormError(err?.message || "Fotoğraf yüklenirken bir hata oluştu.");
+      setNewImageUrl("");
+      setPostImageCompressInfo(null);
+      const errMsg = err?.message || "Fotoğraf yüklenirken bir hata oluştu.";
+      setFormError(errMsg);
+      showToast(errMsg);
     } finally {
       setUploadingPostImage(false);
       e.target.value = "";
@@ -462,6 +472,13 @@ export default function ForumPage() {
     }
     if (!newContent.trim()) {
       setFormError("Lütfen fikir veya düşüncenizi detaylandırın.");
+      return;
+    }
+    if (!livePostModeration.isAllowed) {
+      setFormError(
+        livePostModeration.reason ||
+          "🛡️ Yapay Zeka Sansür Filtresi: Paylaşımınızda küfür veya uygunsuz ifadeler tespit edildi."
+      );
       return;
     }
 
@@ -1075,6 +1092,27 @@ export default function ForumPage() {
                                     className="comment-textarea"
                                   />
                                 </div>
+                                {!analyzeTextProfanitySync(commentInputs[post.id] || "").isAllowed && (
+                                  <div
+                                    style={{
+                                      marginTop: "8px",
+                                      padding: "8px 12px",
+                                      borderRadius: "8px",
+                                      background: "rgba(239, 68, 68, 0.14)",
+                                      border: "1px solid rgba(239, 68, 68, 0.4)",
+                                      color: "#fca5a5",
+                                      fontSize: "12.5px",
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "8px",
+                                    }}
+                                  >
+                                    <AlertTriangle size={15} color="#f87171" style={{ flexShrink: 0 }} />
+                                    <span>
+                                      {analyzeTextProfanitySync(commentInputs[post.id] || "").reason}
+                                    </span>
+                                  </div>
+                                )}
                                 <div className="composer-bottom">
                                   <span style={{ fontSize: "12px", color: "rgba(255, 255, 255, 0.65)", display: "inline-flex", alignItems: "center", gap: "6px" }}>
                                     <UserIcon size={13} color="#e0b878" />
@@ -1083,9 +1121,20 @@ export default function ForumPage() {
                                   <button
                                     type="button"
                                     onClick={() => handleAddComment(post.id)}
-                                    disabled={submittingComments[post.id] || !commentInputs[post.id]?.trim()}
+                                    disabled={
+                                      submittingComments[post.id] ||
+                                      !commentInputs[post.id]?.trim() ||
+                                      !analyzeTextProfanitySync(commentInputs[post.id] || "").isAllowed
+                                    }
                                     className="btn-primary-solid btn-comment-send"
-                                    style={{ marginLeft: "auto", opacity: submittingComments[post.id] ? 0.7 : 1 }}
+                                    style={{
+                                      marginLeft: "auto",
+                                      opacity:
+                                        submittingComments[post.id] ||
+                                        !analyzeTextProfanitySync(commentInputs[post.id] || "").isAllowed
+                                          ? 0.55
+                                          : 1,
+                                    }}
                                   >
                                     <Send size={14} />
                                     <span>{submittingComments[post.id] ? "Gönderiliyor..." : "Yanıtla"}</span>
@@ -1414,11 +1463,53 @@ export default function ForumPage() {
                   />
                 </div>
 
-                {/* Fotoğraf Ekleme Alanı (Otomatik Sıkıştırma + Cloudinary) */}
+                {/* Canlı Yapay Zeka Metin Sansür Uyarısı */}
+                {!livePostModeration.isAllowed && (
+                  <div
+                    style={{
+                      background: "rgba(239, 68, 68, 0.14)",
+                      border: "1px solid rgba(239, 68, 68, 0.45)",
+                      borderRadius: "10px",
+                      padding: "12px 14px",
+                      color: "#fca5a5",
+                      fontSize: "13px",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "10px",
+                      marginBottom: "14px",
+                    }}
+                  >
+                    <AlertTriangle size={18} color="#f87171" style={{ flexShrink: 0, marginTop: "1px" }} />
+                    <div>
+                      <strong style={{ color: "#f87171", display: "block", marginBottom: "2px" }}>
+                        Yapay Zeka Sansür & Güvenlik Engeli
+                      </strong>
+                      <span>{livePostModeration.reason}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Fotoğraf Ekleme Alanı (Yapay Zeka Çıplaklık/Küfür Denetimli + Otomatik Sıkıştırma + Cloudinary) */}
                 <div className="form-group">
-                  <label style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
                     <ImageIcon size={15} color="#e0b878" />
-                    <span>Fotoğraf Ekle (İsteğe Bağlı — Otomatik Sıkıştırılır)</span>
+                    <span>Fotoğraf Ekle (İsteğe Bağlı)</span>
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        color: "#e0b878",
+                        background: "rgba(224, 184, 120, 0.14)",
+                        border: "1px solid rgba(224, 184, 120, 0.3)",
+                        padding: "2px 8px",
+                        borderRadius: "999px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <ShieldCheck size={12} />
+                      <span>Yapay Zeka Çıplaklık & Küfür Korumalı</span>
+                    </span>
                   </label>
 
                   <div
@@ -1446,7 +1537,7 @@ export default function ForumPage() {
                         <Upload size={14} />
                         <span>
                           {uploadingPostImage
-                            ? "Fotoğraf Sıkıştırılıyor & Yükleniyor..."
+                            ? "🤖 Yapay Zeka Görseli İnceliyor & Yüklüyor..."
                             : newImageUrl
                             ? "Fotoğrafı Değiştir"
                             : "Cihazdan Fotoğraf Seç"}
@@ -1490,10 +1581,14 @@ export default function ForumPage() {
                             fontWeight: 500,
                           }}
                         >
-                          ⚡ {postImageCompressInfo}
+                          {postImageCompressInfo}
                         </span>
                       )}
                     </div>
+
+                    <span style={{ fontSize: "11.5px", color: "rgba(255, 255, 255, 0.5)" }}>
+                      * Yüklenen fotoğraflar paylaşılmadan önce yapay zeka tarafından çıplaklık (+18) ve küfür denetiminden geçirilir. Uygunsuz görseller otomatik olarak reddedilir.
+                    </span>
 
                     {newImageUrl && (
                       <div
@@ -1567,21 +1662,21 @@ export default function ForumPage() {
                   </button>
                   <button
                     type="submit"
-                    disabled={submittingPost || uploadingPostImage}
+                    disabled={submittingPost || uploadingPostImage || !livePostModeration.isAllowed}
                     className="btn-primary-solid"
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
                       gap: "8px",
-                      opacity: submittingPost || uploadingPostImage ? 0.65 : 1,
+                      opacity: submittingPost || uploadingPostImage || !livePostModeration.isAllowed ? 0.55 : 1,
                     }}
                   >
                     <Send size={16} />
                     <span>
                       {uploadingPostImage
-                        ? "Fotoğraf Yükleniyor..."
+                        ? "Yapay Zeka Görseli İnceliyor..."
                         : submittingPost
-                        ? "Paylaşılıyor..."
+                        ? "Yapay Zeka Denetliyor & Paylaşılıyor..."
                         : "Fikri Toplulukla Paylaş"}
                     </span>
                   </button>

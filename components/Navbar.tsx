@@ -270,31 +270,12 @@ export default function Navbar() {
         className={`side-drawer-backdrop ${sidebarOpen ? "open" : ""}`}
         onClick={() => setSidebarOpen(false)}
         aria-hidden="true"
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 99998,
-          opacity: sidebarOpen ? 1 : 0,
-          pointerEvents: sidebarOpen ? "auto" : "none",
-          visibility: sidebarOpen ? "visible" : "hidden",
-        }}
       />
 
       {/* SOL SLIDE DRAWER (HAFİFÇE SAĞA KAYARAK AÇILAN PANEL) */}
       <aside 
         className={`side-drawer-panel ${sidebarOpen ? "open" : ""}`}
         aria-label="Ana Gezinme Menüsü"
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          bottom: 0,
-          zIndex: 99999,
-          transform: sidebarOpen ? "translate3d(0, 0, 0)" : "translate3d(-105%, 0, 0)",
-          WebkitTransform: sidebarOpen ? "translate3d(0, 0, 0)" : "translate3d(-105%, 0, 0)",
-          visibility: sidebarOpen ? "visible" : "hidden",
-          pointerEvents: sidebarOpen ? "auto" : "none",
-        }}
       >
         <div className="side-drawer-header">
           <button 
@@ -304,13 +285,13 @@ export default function Navbar() {
               router.push("/");
             }} 
             className="side-drawer-logo"
-            style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}
+            aria-label="PsikoWay Ana Sayfa"
           >
             <Image
               src="/logo.png"
               alt="PsikoWay Logo"
-              width={42}
-              height={42}
+              width={44}
+              height={44}
               className="nav-logo-img"
             />
             <div className="side-drawer-brand">
@@ -326,12 +307,12 @@ export default function Navbar() {
             aria-label="Menüyü Kapat"
             title="Kapat"
           >
-            <X size={20} />
+            <X size={19} />
           </button>
         </div>
 
         <div className="side-drawer-body">
-          <div className="side-drawer-section-label">GEZİNME & SAYFALAR</div>
+          <div className="side-drawer-section-label">Gezinme & Sayfalar</div>
           <nav className="side-drawer-nav">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
@@ -345,7 +326,6 @@ export default function Navbar() {
                     router.push(item.href);
                   }}
                   className={`side-drawer-nav-item ${isActive ? "active" : ""}`}
-                  style={{ width: "100%", textAlign: "left", cursor: "pointer", fontFamily: "inherit" }}
                 >
                   <div className="side-nav-item-left">
                     <span className="side-nav-icon-box">
@@ -365,7 +345,7 @@ export default function Navbar() {
 
           {/* MOBİL UYGULAMA İNDİRME KARTI (LOGOLU) */}
           <div className="side-drawer-install-section">
-            <div className="side-drawer-section-label" style={{ marginTop: "18px" }}>MOBİL UYGULAMA</div>
+            <div className="side-drawer-section-label">Mobil Uygulama</div>
             <button
               type="button"
               onClick={() => {
@@ -398,7 +378,6 @@ export default function Navbar() {
                   router.push("/profil");
                 }} 
                 className="side-drawer-user-info"
-                style={{ background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0, width: "100%" }}
               >
                 {userProfile?.photoURL || user.photoURL ? (
                   <img
@@ -437,7 +416,6 @@ export default function Navbar() {
                 router.push("/auth");
               }}
               className="side-drawer-login-btn"
-              style={{ width: "100%", cursor: "pointer", border: "none", fontFamily: "inherit", fontSize: "14px" }}
             >
               <span>Giriş Yap veya Katıl</span>
               <ArrowRight size={16} />
