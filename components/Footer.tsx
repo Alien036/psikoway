@@ -72,13 +72,13 @@ export default function Footer() {
         </div>
 
         <div className="footer-developer-section">
-          <span className="footer-developer-title">Geliştirici Ekip</span>
+          <span className="footer-developer-title">Geliştirildi</span>
           <div className="footer-developer-logo-box" title="BU Studio">
             <Image
               src="/bu-studio.png"
               alt="BU Studio"
-              width={56}
-              height={53}
+              width={130}
+              height={124}
               className="footer-developer-img"
             />
           </div>
