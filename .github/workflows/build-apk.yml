@@ -101,8 +101,8 @@ jobs:
 
       - name: Commit PsikoWay.apk to public/
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "Alien036"
+          git config user.email "umutakilli03@gmail.com"
           git add public/PsikoWay.apk
           if ! git diff --staged --quiet; then
             git commit -m "chore(apk): build signed PsikoWay.apk [skip ci]"
