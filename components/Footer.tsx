@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { MapPin, Phone, Mail } from "lucide-react";
 
 export default function Footer() {
@@ -61,11 +62,26 @@ export default function Footer() {
       </div>
 
       <div className="footer-bottom">
-        <p>© 2026 PsikoWay Psikolojik Danışmanlık ve Terapi Merkezi. Tüm hakları saklıdır.</p>
-        <div className="footer-legal">
-          <Link href="#">Gizlilik Politikası</Link>
-          <Link href="#">Kullanım Koşulları</Link>
-          <Link href="#">Aydınlatma Metni</Link>
+        <div className="footer-bottom-info">
+          <p>© 2026 PsikoWay Psikolojik Danışmanlık ve Terapi Merkezi. Tüm hakları saklıdır.</p>
+          <div className="footer-legal">
+            <Link href="#">Gizlilik Politikası</Link>
+            <Link href="#">Kullanım Koşulları</Link>
+            <Link href="#">Aydınlatma Metni</Link>
+          </div>
+        </div>
+
+        <div className="footer-developer-section">
+          <span className="footer-developer-title">Geliştirici Ekip</span>
+          <div className="footer-developer-logo-box" title="BU Studio">
+            <Image
+              src="/bu-studio.png"
+              alt="BU Studio"
+              width={56}
+              height={53}
+              className="footer-developer-img"
+            />
+          </div>
         </div>
       </div>
     </footer>
