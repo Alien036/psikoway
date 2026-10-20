@@ -10,7 +10,28 @@ export const SERIES_LIST: SeriesItem[] = (RAW_SERIES_LIST && RAW_SERIES_LIST.len
   ? RAW_SERIES_LIST
   : (catalogStatic.series as SeriesItem[]);
 
-export const CHARACTER_ANALYSES: CharacterSummaryItem[] = catalogStatic.characters as CharacterSummaryItem[];
+export const CHARACTER_ANALYSES: CharacterSummaryItem[] = (RAW_CHARACTER_ANALYSES && RAW_CHARACTER_ANALYSES.length > 0)
+  ? RAW_CHARACTER_ANALYSES.map((c) => ({
+      id: c.id,
+      seriesId: c.seriesId,
+      characterName: c.characterName,
+      series: c.series,
+      actor: c.actor,
+      role: c.role,
+      roleBadge: c.roleBadge,
+      image: c.image,
+      badge: c.badge,
+      categoryBadge: c.categoryBadge,
+      tagline: c.tagline,
+      readTime: c.readTime,
+      psychologicalProfile: {
+        primaryDiagnosis: c.psychologicalProfile?.primaryDiagnosis || "",
+        archetype: c.psychologicalProfile?.archetype || "",
+        defenseMechanisms: c.psychologicalProfile?.defenseMechanisms || [],
+        coreConflict: c.psychologicalProfile?.coreConflict || "",
+      },
+    }))
+  : (catalogStatic.characters as CharacterSummaryItem[]);
 
 // 2. Statik Karakter Analizleri Haritası (0ms Senkron Erişim)
 const staticCharacterMap = new Map<string, CharacterAnalysisArticle>();

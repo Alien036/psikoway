@@ -1,6 +1,34 @@
 {
   "series": [
     {
+      "id": "alice-in-borderland",
+      "title": "Alice in Borderland",
+      "genre": "Psikolojik Gerilim • Hayatta Kalma • Distopya • Gizem",
+      "seasons": "2 Sezon • Netflix",
+      "coverImage": "/series/alice-in-borderland.jpg",
+      "tagline": "Ölümcül oyunların ortasında, yaşama arzusu ile varoluşsal nihilizmin en çıplak psikolojik hesaplaşması.",
+      "psychologicalTheme": "Varoluşsal Nihilizm, Hayatta Kalan Suçluluğu (Survivor's Guilt), Sosyal Darwinizm & Travma Sonrası Büyüme",
+      "characterCount": 16,
+      "characterIds": [
+        "ryohei-arisu",
+        "yuzuha-usagi",
+        "shuntaro-chishiya",
+        "hikari-kuina",
+        "suguru-niragi",
+        "ann-rizuna",
+        "mira-kano",
+        "takeru-danma-hatter",
+        "morizono-aguni",
+        "daikichi-karube",
+        "chota-segawa",
+        "ginji-kyuma",
+        "keiichi-kuzuryu",
+        "akane-heiya",
+        "takatora-samura-last-boss",
+        "kodai-tatta"
+      ]
+    },
+    {
       "id": "joker-movie",
       "title": "Joker",
       "genre": "Psikolojik Gerilim • Suç • Sosyal Yabancılaşma",
@@ -1303,6 +1331,390 @@
     }
   ],
   "characters": [
+    {
+      "id": "ryohei-arisu",
+      "seriesId": "alice-in-borderland",
+      "characterName": "Ryohei Arisu",
+      "series": "Alice in Borderland",
+      "actor": "Kento Yamazaki",
+      "role": "main",
+      "roleBadge": "Ana Karakter",
+      "image": "/characters/ryohei-arisu.jpg",
+      "badge": "Hayatta Kalan Suçluluğu & Varoluşsal Uyanış",
+      "categoryBadge": "Travma & Yas",
+      "tagline": "Kendi dünyasında kaybolmuş bir oyuncunun, dostlarının kaybı üzerinde inşa ettiği yaşama iradesi.",
+      "readTime": "9 dk okuma",
+      "psychologicalProfile": {
+        "primaryDiagnosis": "Travma Sonrası Stres Bozukluğu (TSSB), Ağır Hayatta Kalan Suçluluğu (Survivor's Guilt) & Varoluşsal Kriz",
+        "archetype": "İsteksiz Kahraman & Kalp Stratejisti (The Reluctant Visionary)",
+        "defenseMechanisms": [
+          "Disosiasyon",
+          "İçe Atım (Introjection)",
+          "Yüceltme (Sublimation)"
+        ],
+        "coreConflict": "Gerçek dünyadaki ebeveyn beklentileri ve yetersizlik anksiyetesinden kaçarken, Borderland'de Karube ve Chota'nın onun yaşaması için kendilerini feda etmelerinin yarattığı ezici borçluluk duygusu."
+      }
+    },
+    {
+      "id": "yuzuha-usagi",
+      "seriesId": "alice-in-borderland",
+      "characterName": "Yuzuha Usagi",
+      "series": "Alice in Borderland",
+      "actor": "Tao Tsuchiya",
+      "role": "main",
+      "roleBadge": "Ana Karakter",
+      "image": "/characters/yuzuha-usagi.jpg",
+      "badge": "Kompleks TSSB & Karşıt-Bağımlılık",
+      "categoryBadge": "Travma & Başa Çıkma",
+      "tagline": "Babasının intiharıyla insanlığa küsen, dağların sertliğiyle ruhunu zırhlayan yalnız hayatta kalan.",
+      "readTime": "8 dk okuma",
+      "psychologicalProfile": {
+        "primaryDiagnosis": "Kompleks Travma Sonrası Stres Bozukluğu (C-PTSD), İntihar İkincil Travması & Karşıt-Bağımlılık (Counter-dependency)",
+        "archetype": "Yalnız Dağcı & Doğal Savaşçı (The Solitary Survivor)",
+        "defenseMechanisms": [
+          "Bedenselleştirme/Fizikselleşme",
+          "Duygusal İzolasyon",
+          "Reaksiyon Oluşturma"
+        ],
+        "coreConflict": "Saygın bir dağcı olan babasının medyatik bir itibar suikastı sonucu intihar etmesi; topluma duyduğu derin güvensizlik ile içindeki bağlanma ve korunma arzusunun çatışması."
+      }
+    },
+    {
+      "id": "shuntaro-chishiya",
+      "seriesId": "alice-in-borderland",
+      "characterName": "Shuntaro Chishiya",
+      "series": "Alice in Borderland",
+      "actor": "Nijiro Murakami",
+      "role": "supporting",
+      "roleBadge": "Kilit Karakter",
+      "image": "/characters/shuntaro-chishiya.jpg",
+      "badge": "Oyun Teorisi Nihilizmi & Duygusal Anestezi",
+      "categoryBadge": "Antisosyal & Akıl",
+      "tagline": "İnsan canını soğuk bir olasılık hesabına indirgeyen, beyaz kapüşonunun altında anlam arayan dahi.",
+      "readTime": "9 dk okuma",
+      "psychologicalProfile": {
+        "primaryDiagnosis": "Duygusal Yalıtım (Isolation of Affect), Rasyonel Psikopatik Özellikler & Savunmacı Nihilizm",
+        "archetype": "Soğuk Akıl & Manipülatif Beyaz Tavşan (The Detached Analyst)",
+        "defenseMechanisms": [
+          "Aşırı İntellektüalizasyon",
+          "Duygusal Küntleşme",
+          "Makyavelist Bölme"
+        ],
+        "coreConflict": "Tıp fakültesinde çocuk hastaların organ naklinde torpille ölüme terk edilişini izlerken insan hayatının değersizliğine ikna olması; kendi vicdan azabını alaycı bir umursamazlıkla bastırması."
+      }
+    },
+    {
+      "id": "hikari-kuina",
+      "seriesId": "alice-in-borderland",
+      "characterName": "Hikari Kuina",
+      "series": "Alice in Borderland",
+      "actor": "Aya Asahina",
+      "role": "supporting",
+      "roleBadge": "Kilit Karakter",
+      "image": "/characters/hikari-kuina.jpg",
+      "badge": "Kimlik Özgürleşmesi & Beden Zırhı",
+      "categoryBadge": "Travma & Kimlik",
+      "tagline": "Babasının dövüş mirasını kadın kimliğiyle birleştiren, sevdikleri için ölüme meydan okuyan savaşçı.",
+      "readTime": "8 dk okuma",
+      "psychologicalProfile": {
+        "primaryDiagnosis": "Cinsiyet Kimliği Uyumsuzluğu Travması, Ailevi Reddedilme & Kompansatuar Savunma",
+        "archetype": "Dönüşen Anka & Koruyucu Savaşçı (The Transformed Warrior)",
+        "defenseMechanisms": [
+          "Bedensel Dönüşüm",
+          "Yüceltme",
+          "Dışsallaştırma"
+        ],
+        "coreConflict": "Geleneksel karate ustası babasının 'erkek veliaht' baskısını reddedip trans kadın kimliğini inşa ederken evden kovulması; annesine olan sevgisiyle hayatta kalma arzusu."
+      }
+    },
+    {
+      "id": "suguru-niragi",
+      "seriesId": "alice-in-borderland",
+      "characterName": "Suguru Niragi",
+      "series": "Alice in Borderland",
+      "actor": "Dori Sakurada",
+      "role": "supporting",
+      "roleBadge": "Baş Kötü / Yan Karakter",
+      "image": "/characters/suguru-niragi.jpg",
+      "badge": "Malign Sadizm & Saldırganla Özdeşim",
+      "categoryBadge": "Antisosyal & Sadizm",
+      "tagline": "Zorbalığın kurbanıyken canavarına dönüşen, dünyanın çirkinliğini yangınla kanıtlamaya çalışan nihilist.",
+      "readTime": "9 dk okuma",
+      "psychologicalProfile": {
+        "primaryDiagnosis": "Antisosyal Kişilik Bozukluğu (ASPD), Malign Sadizm & Travmatik Saldırganla Özdeşim (Identification with the Aggressor)",
+        "archetype": "Yaralı Canavar & Yıkıcı Kaos (The Traumatized Sadist)",
+        "defenseMechanisms": [
+          "Yansıtmalı Özdeşim",
+          "Bölme (Splitting)",
+          "Sadomazoşistik Eyleme Vurma (Acting Out)"
+        ],
+        "coreConflict": "Okul hayatında maruz kaldığı ağır akran zorbalığı ve aşağılanmanın intikamını, eline silah geçirince tüm insanlığa aynı işkenceyi çektirerek almaya çalışması."
+      }
+    },
+    {
+      "id": "ann-rizuna",
+      "seriesId": "alice-in-borderland",
+      "characterName": "Ann Rizuna",
+      "series": "Alice in Borderland",
+      "actor": "Ayaka Miyoshi",
+      "role": "supporting",
+      "roleBadge": "Kilit Karakter",
+      "image": "/characters/ann-rizuna.jpg",
+      "badge": "Adli Mantık & Hiper-Rasyonalite",
+      "categoryBadge": "Obsesif & Mantık",
+      "tagline": "Kaosun ve cesetlerin ortasında sadece kanıtlara inanan, duyguyu yasaklamış soğukkanlı bilim kadını.",
+      "readTime": "8 dk okuma",
+      "psychologicalProfile": {
+        "primaryDiagnosis": "Aşırı Rasyonalizasyon, Bastırılmış Duygulanım (Repression) & Obsesif Empirizm",
+        "archetype": "Soğukkanlı Bilimci & Adli Araştırmacı (The Forensic Mind)",
+        "defenseMechanisms": [
+          "Aşırı Mantıksallaştırma",
+          "Duygusal Bastırma",
+          "Kompulsif İnceleme"
+        ],
+        "coreConflict": "Ölümün ve vahşetin yarattığı dehşeti, her şeyi parmak izi, kimyasal reaksiyon ve mantık denklemine indirgeyerek hissizleştirmesi."
+      }
+    },
+    {
+      "id": "mira-kano",
+      "seriesId": "alice-in-borderland",
+      "characterName": "Mira Kano",
+      "series": "Alice in Borderland",
+      "actor": "Riisa Naka",
+      "role": "supporting",
+      "roleBadge": "Kupa Kraliçesi / Baş Düşman",
+      "image": "/characters/mira-kano.jpg",
+      "badge": "Kupa Kraliçesi & Patolojik Gaslighting",
+      "categoryBadge": "Narsisizm & Zihin",
+      "tagline": "Bir fincan çay eşliğinde zihninizi lime lime eden, gerçekliğin illüzyonisti.",
+      "readTime": "9 dk okuma",
+      "psychologicalProfile": {
+        "primaryDiagnosis": "Malign Narsisizm, Patolojik Gaslighting & Psikopatik Zihin Kontrolü",
+        "archetype": "Kupa Kraliçesi & Kaotik Terapist (The Dark Puppeteer)",
+        "defenseMechanisms": [
+          "Yansıtmalı Özdeşim",
+          "Manipülatif Gerçeklik Kurgusu",
+          "Grandiyöz Oyunculuk"
+        ],
+        "coreConflict": "İnsan bilincini kırılgan bir oyuncak olarak görmesi; Arisu'nun ruhsal direncini kırmak için gerçekliği defalarca yeniden kurgulayarak tanrıcılık oynaması."
+      }
+    },
+    {
+      "id": "takeru-danma-hatter",
+      "seriesId": "alice-in-borderland",
+      "characterName": "Takeru Danma (Hatter)",
+      "series": "Alice in Borderland",
+      "actor": "Nobuaki Kaneko",
+      "role": "supporting",
+      "roleBadge": "Beach Lideri / Yan Karakter",
+      "image": "/characters/takeru-danma-hatter.jpg",
+      "badge": "Megalomanik Kült Lideri & Paranoya",
+      "categoryBadge": "Narsisizm & İktidar",
+      "tagline": "Sahil ütopyasını bikiniler ve uyuşturucuyla inşa eden, paranoyanın pençesinde çöken sahte kral.",
+      "readTime": "8 dk okuma",
+      "psychologicalProfile": {
+        "primaryDiagnosis": "Megalomanik Bipolar Spektrum Özellikleri, Narsisistik Öfke & Paranoid Çözülme",
+        "archetype": "Çılgın Şapkacı & Düşmüş Kral (The Delusional King)",
+        "defenseMechanisms": [
+          "Grandiyöz Fanteziler",
+          "Mani / Hiperaktivite",
+          "İnkar"
+        ],
+        "coreConflict": "Babası gibi sıradan bir şapkacı olarak unutulma dehşeti; Borderland'de herkesi kurtaracak tek lider olduğuna inanarak geliştirdiği mesiyanik sanrı."
+      }
+    },
+    {
+      "id": "morizono-aguni",
+      "seriesId": "alice-in-borderland",
+      "characterName": "Morizono Aguni",
+      "series": "Alice in Borderland",
+      "actor": "Sho Aoyagi",
+      "role": "supporting",
+      "roleBadge": "Kilit Yan Karakter",
+      "image": "/characters/morizono-aguni.jpg",
+      "badge": "Travmatik Yas & Cezalandırıcı Öfke",
+      "categoryBadge": "Travma & Suçluluk",
+      "tagline": "Kendi dostunu öldürmenin azabıyla dünyayı ateşe veren, kurşun işlemez dev savaşçı.",
+      "readTime": "8 dk okuma",
+      "psychologicalProfile": {
+        "primaryDiagnosis": "Travmatik Yas Bozukluğu, Ağır İkincil Depresyon & Yıkıcı Kendini Cezalandırma (Thanatos Dürtüsü)",
+        "archetype": "Yaralı Savaşçı & Sadık Muhafız (The Tragic Guardian)",
+        "defenseMechanisms": [
+          "Dışsallaştırma (Öfke Patlamaları)",
+          "Bölme",
+          "Mazoşistik Kendini Yok Etme"
+        ],
+        "coreConflict": "Deliren ve arkadaşlarını vurmaya kalkan en yakın dostu Hatter'ı öldürmek zorunda kalmanın vicdani ağırlığı; Beach sakinlerini öldürerek kendi infazını hazırlama arzusu."
+      }
+    },
+    {
+      "id": "daikichi-karube",
+      "seriesId": "alice-in-borderland",
+      "characterName": "Daikichi Karube",
+      "series": "Alice in Borderland",
+      "actor": "Keita Machida",
+      "role": "supporting",
+      "roleBadge": "Kilit Yan Karakter",
+      "image": "/characters/daikichi-karube.jpg",
+      "badge": "Özgecil Sadakat & Koruyucu Ağabey",
+      "categoryBadge": "Travma & Fedakarlık",
+      "tagline": "Kaba dış görünüşünün ardında devasa bir yürek taşıyan, dostu yaşasın diye canını feda eden kahraman.",
+      "readTime": "8 dk okuma",
+      "psychologicalProfile": {
+        "primaryDiagnosis": "Dürtüsel Karşıt-Tepki, Koruyucu Maskülinite & Özgecil Kendini Feda Etme",
+        "archetype": "Sadık Muhafız & Soylu Şövalye (The Loyal Protector)",
+        "defenseMechanisms": [
+          "Eyleme Vurma (Action-orientation)",
+          "Bastırma",
+          "Özgecilik (Altruism)"
+        ],
+        "coreConflict": "Kendi geleceğinden umutsuz hissederken Arisu'nun potansiyeline olan sarsılmaz inancı; dostunu yaşatmak için kendi hayallerinden vazgeçmesi."
+      }
+    },
+    {
+      "id": "chota-segawa",
+      "seriesId": "alice-in-borderland",
+      "characterName": "Chota Segawa",
+      "series": "Alice in Borderland",
+      "actor": "Yuki Morinaga",
+      "role": "supporting",
+      "roleBadge": "Yan Karakter",
+      "image": "/characters/chota-segawa.jpg",
+      "badge": "Kurban Kimliğinden Aşkınlığa Geçiş",
+      "categoryBadge": "Anksiyete & Özgüven",
+      "tagline": "Korkularının esiri bir bilişim çalışanıyken, dostluk uğruna korkusunu aşarak devleşen masumiyet.",
+      "readTime": "7 dk okuma",
+      "psychologicalProfile": {
+        "primaryDiagnosis": "Yaygın Anksiyete Bozukluğu (YAB), Düşük Benlik Saygısı & İnsektör Bağlanma",
+        "archetype": "Kırılgan Masum & Kurbanın Dönüşümü (The Fragile Innocent)",
+        "defenseMechanisms": [
+          "Regresyon",
+          "Boyun Eğicilik",
+          "Özgecil Aşkınlık (Self-Transcendence)"
+        ],
+        "coreConflict": "Kült tarikatlara para kaptıran annesinin yarattığı utanç ve ekonomik sömürü; hayatı boyunca hissettiği yetersizliği Arisu ve Karube'nin sevgisiyle aşması."
+      }
+    },
+    {
+      "id": "ginji-kyuma",
+      "seriesId": "alice-in-borderland",
+      "characterName": "Ginji Kyuma",
+      "series": "Alice in Borderland",
+      "actor": "Tomohisa Yamashita",
+      "role": "supporting",
+      "roleBadge": "Sinek Kralı / Yan Karakter",
+      "image": "/characters/ginji-kyuma.jpg",
+      "badge": "Sinek Kralı & Radikal Otantiklik",
+      "categoryBadge": "Varoluşçuluk & Otantiklik",
+      "tagline": "Kıyafetleri ve sahte unvanları reddeden, çıplak varoluşuyla ölümü bir dost gibi kucaklayan müzisyen.",
+      "readTime": "9 dk okuma",
+      "psychologicalProfile": {
+        "primaryDiagnosis": "Radikal Otantik Kişilik, Varoluşsal Hümanizm & Nüdist Doğallık Arayışı",
+        "archetype": "Sinek Kralı & Özgür Ruhlu Dionisos (The Authentic Free-Spirit)",
+        "defenseMechanisms": [
+          "Yüceltme (Müzik & Sanat)",
+          "Felsefi Entegrasyon",
+          "Radikal Kabul"
+        ],
+        "coreConflict": "Modern toplumun dayattığı statü, kıyafet ve sahteliklerin insanı kendi özünden uzaklaştırması; Borderland'de bile düşmanlarına sevgiyle yaklaşarak dürüst bir rekabet sürdürmesi."
+      }
+    },
+    {
+      "id": "keiichi-kuzuryu",
+      "seriesId": "alice-in-borderland",
+      "characterName": "Keiichi Kuzuryu",
+      "series": "Alice in Borderland",
+      "actor": "Tsuyoshi Abe",
+      "role": "supporting",
+      "roleBadge": "Karo Kralı / Yan Karakter",
+      "image": "/characters/keiichi-kuzuryu.jpg",
+      "badge": "Karo Kralı & Radikal Eşitlikçilik",
+      "categoryBadge": "Obsesif Adalet & Vicdan",
+      "tagline": "İnsan hayatının değerini sayılarla ölçmeyi reddeden, asit havuzunda vicdanını temize çeken yargıç.",
+      "readTime": "9 dk okuma",
+      "psychologicalProfile": {
+        "primaryDiagnosis": "Ahlaki Felç (Moral Paralysis), Obsesif Adalet Çatışması & Radikal Eşitlikçilik",
+        "archetype": "Karo Kralı & Trajik Yargıç (The Righteous Arbiter)",
+        "defenseMechanisms": [
+          "Aşırı İntellektüalizasyon",
+          "Ahlaki Rasyonalizasyon",
+          "Özgecil İntihar"
+        ],
+        "coreConflict": "Uluslararası bir avukatken zengin müvekkillerinin hayatını yoksul insanların hayatına tercih eden kapitalist sisteme hizmet etmiş olmanın yarattığı derin ahlaki tükenmişlik."
+      }
+    },
+    {
+      "id": "akane-heiya",
+      "seriesId": "alice-in-borderland",
+      "characterName": "Akane Heiya",
+      "series": "Alice in Borderland",
+      "actor": "Yuri Tsunematsu",
+      "role": "supporting",
+      "roleBadge": "Kilit Yan Karakter",
+      "image": "/characters/akane-heiya.jpg",
+      "badge": "Travma Sonrası Büyüme & Mekanik Direnç",
+      "categoryBadge": "Travma Sonrası Büyüme",
+      "tagline": "Kopan bacağının yerine protez ve yay kuşanan, acısını vahşi bir hayatta kalma enerjisine dönüştüren liseli okçu.",
+      "readTime": "8 dk okuma",
+      "psychologicalProfile": {
+        "primaryDiagnosis": "Travma Sonrası Büyüme (Post-Traumatic Growth), Somatik Dayanıklılık & Erotize Edilmiş Hayatta Kalma Dürtüsü",
+        "archetype": "Yaralı Amazon & İsankar Okçu (The Resilient Hunter)",
+        "defenseMechanisms": [
+          "Hiper-Bağımsızlık",
+          "Mizahi Baş Etme",
+          "Karşıt-Fobi"
+        ],
+        "coreConflict": "Gerçek dünyadaki yüzeysel ilişkiler ve duygusal boşluğu; Borderland'de fiziksel organ kaybı yaşamasına rağmen saf hayatta kalma arzusuyla anlamlandırması."
+      }
+    },
+    {
+      "id": "takatora-samura-last-boss",
+      "seriesId": "alice-in-borderland",
+      "characterName": "Takatora Samura (The Last Boss)",
+      "series": "Alice in Borderland",
+      "actor": "Shuntaro Yanagi",
+      "role": "supporting",
+      "roleBadge": "Yan Karakter",
+      "image": "/characters/takatora-samura-last-boss.jpg",
+      "badge": "Hikikomori Yabancılaşması & Somatik Dövme Zırhı",
+      "categoryBadge": "Antisosyal & Yabancılaşma",
+      "tagline": "Karanlık bir odada unutulmuş bir hayaletken, katanasıyla tüm dünyayı kan gölüne çeviren dilsiz gölge.",
+      "readTime": "7 dk okuma",
+      "psychologicalProfile": {
+        "primaryDiagnosis": "Şizoid İzolasyon (Ağır Hikikomori), Dissosiyatif Yabancılaşma & Katatonik Öfke",
+        "archetype": "Yıkıcı Ronin & Sessiz Kıyıcı (The Shadow Recluse)",
+        "defenseMechanisms": [
+          "Somatik Dışsallaştırma (Tüm Vücut Dövmesi)",
+          "Duygusal Hissizleşme",
+          "Yıkıcı Eyleme Vurma"
+        ],
+        "coreConflict": "Gerçek dünyada yıllarca odasından çıkamayan, ailesinin bile yok saydığı bir parazitken; Borderland'de acımasız bir samuraya dönüşerek varlığını sadece öldürerek kanıtlayabilmesi."
+      }
+    },
+    {
+      "id": "kodai-tatta",
+      "seriesId": "alice-in-borderland",
+      "characterName": "Kodai Tatta",
+      "series": "Alice in Borderland",
+      "actor": "Yutaro Watanabe",
+      "role": "supporting",
+      "roleBadge": "Yan Karakter",
+      "image": "/characters/kodai-tatta.jpg",
+      "badge": "Yetersizlik Kompleksi & Sessiz Kahramanlık",
+      "categoryBadge": "Yetersizlik & Bağlanma",
+      "tagline": "Kendini hep bir yük gibi gören oto tamircisinin, dostları uğruna sergilediği en acı fedakarlık.",
+      "readTime": "7 dk okuma",
+      "psychologicalProfile": {
+        "primaryDiagnosis": "Aşağılık Kompleksi (Inferiority Complex), Bağımlı Kişilik Eğilimi & Özgecil Telafi",
+        "archetype": "Sadık Çırak & Sessiz Kahraman (The Unsung Helper)",
+        "defenseMechanisms": [
+          "Aşağılık Duygusunu Kompanse Etme",
+          "Aşırı Uyumluluk",
+          "Fedakarlık"
+        ],
+        "coreConflict": "Gerçek dünyada tamirhanede sürekli hata yapıp ustasından azar işiten bir çırakken; Borderland'de Arisu'nun ekibine faydalı olabilmek için canını ortaya koyması."
+      }
+    },
     {
       "id": "el-profesor",
       "seriesId": "la-casa-de-papel",

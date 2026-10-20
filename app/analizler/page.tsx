@@ -258,7 +258,7 @@ export default function AnalysisPage() {
                 className={`catalog-format-toggle-btn ${mediaType === "all" ? "active" : ""}`}
                 onClick={() => setMediaType("all")}
               >
-                🎬 Tümü (70 Yapım)
+                🎬 Tümü ({seriesList.length} Yapım)
               </button>
               <button
                 type="button"
