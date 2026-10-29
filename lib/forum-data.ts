@@ -715,14 +715,15 @@ export const createForumPost = async (
   const isShadow = rateLimitResult.isShadowbanned || isCrisis;
 
   const created: ForumPost = {
-    ...newPostData,
     id: `post-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     title: cleanTitle,
     content: cleanContent,
+    category: newPostData.category || "Psikoloji & Zihin",
+    tags: Array.isArray(newPostData.tags) ? newPostData.tags : [],
+    authorId: newPostData.authorId,
     authorName: newPostData.authorName || "PsikoWay Düşünürü",
     authorAvatar: newPostData.authorAvatar || "",
     authorProfession: newPostData.authorProfession || "",
-    authorBio: newPostData.authorBio || "",
     imageUrl: newPostData.imageUrl || "",
     createdAt: new Date().toISOString(),
     likes: [],
@@ -731,7 +732,6 @@ export const createForumPost = async (
     comments: [],
     isAnonymous: false,
     isShadowbanned: isShadow,
-    shadowClientFingerprint: clientFp,
   };
 
   // Eğer gölge kısıtlandıysa: Kullanıcının kendi yerel deposuna ekle (kendi sayfasında dursun)
@@ -956,7 +956,6 @@ export const addPostComment = async (
     createdAt: new Date().toISOString(),
     likes: [],
     isShadowbanned: isShadow,
-    shadowClientFingerprint: clientFp,
   };
 
   let allCommentsForPost: ForumComment[] = [];

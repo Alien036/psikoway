@@ -65,9 +65,9 @@ export default function Footer() {
         <div className="footer-bottom-info">
           <p>© 2026 PsikoWay Psikolojik Danışmanlık ve Terapi Merkezi. Tüm hakları saklıdır.</p>
           <div className="footer-legal">
-            <Link href="#">Gizlilik Politikası</Link>
-            <Link href="#">Kullanım Koşulları</Link>
-            <Link href="#">Aydınlatma Metni</Link>
+            <Link href="/kvkk?bolum=gizlilik">Gizlilik Politikası</Link>
+            <Link href="/kvkk?bolum=sozlesme">Kullanım Koşulları</Link>
+            <Link href="/kvkk?bolum=aydinlatma">Aydınlatma Metni</Link>
           </div>
         </div>
 

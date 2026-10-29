@@ -10,6 +10,8 @@ export interface UserProfile {
   youtube?: string;    // YouTube kanalı / linki (örn: @kanaladi veya https://youtube.com/@kanaladi)
   createdAt?: string;
   isAnonymous: boolean;
+  kvkkConsent?: boolean;   // KVKK / GDPR ve yurt dışı veri aktarımı açık rıza durumu
+  consentGivenAt?: string; // Kullanıcının açık rıza verdiği zaman damgası (ISO timestamp)
   role?: string;
   isBanned?: boolean;
   banReason?: string;

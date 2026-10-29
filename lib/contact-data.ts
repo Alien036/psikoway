@@ -32,9 +32,16 @@ export const saveContactMessageToFirebase = async (
   data: Omit<ContactMessage, "id" | "createdAt" | "status">
 ): Promise<ContactMessage> => {
   const id = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+  const stripTcKimlik = (val: string) => (val || "").replace(/\b[1-9][0-9]{10}\b/g, "[TC-KIMLIK-GIZLENDI]").trim();
   const message: ContactMessage = {
-    ...data,
     id,
+    fullName: stripTcKimlik(data.fullName),
+    phone: (data.phone || "").trim(),
+    email: (data.email || "").trim(),
+    serviceType: (data.serviceType || "").trim(),
+    sessionFormat: (data.sessionFormat || "").trim(),
+    preferredTime: (data.preferredTime || "").trim(),
+    message: stripTcKimlik(data.message),
     createdAt: new Date().toISOString(),
     status: "new",
   };

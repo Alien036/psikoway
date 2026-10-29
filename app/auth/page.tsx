@@ -18,9 +18,11 @@ import {
   EyeOff, 
   CheckCircle2, 
   AlertCircle,
-  BookOpen
+  BookOpen,
+  ShieldCheck
 } from "lucide-react";
 import BackgroundVideo from "../../components/BackgroundVideo";
+import KvkkPrivacyModal, { KvkkModalSection } from "../../components/KvkkPrivacyModal";
 import { useAuth } from "../../context/AuthContext";
 import { triggerHoneypotTrap, isDisposableEmail } from "../../lib/anti-spam";
 import { toUsernameSlug } from "../../lib/profile-data";
@@ -51,6 +53,12 @@ function AuthForm() {
   const [profession, setProfession] = useState("");
   const [honeypot, setHoneypot] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+
+  // KVKK & GDPR Bağımsız Onay Kutucukları (Varsayılan olarak seçili GELMEZ: false)
+  const [termsAccepted, setTermsAccepted] = useState<boolean>(false);
+  const [firebaseConsentAccepted, setFirebaseConsentAccepted] = useState<boolean>(false);
+  const [kvkkModalOpen, setKvkkModalOpen] = useState<boolean>(false);
+  const [kvkkModalSection, setKvkkModalSection] = useState<KvkkModalSection>("aydinlatma");
 
   // Durumlar
   const [error, setError] = useState("");
@@ -115,10 +123,22 @@ function AuthForm() {
       setError("Şifreniz en az 6 karakter olmalıdır.");
       return;
     }
+    if (!termsAccepted) {
+      setError("Lütfen Kullanıcı Sözleşmesi'ni ve Aydınlatma Metni'ni okuyup onaylayınız.");
+      return;
+    }
+    if (!firebaseConsentAccepted) {
+      setError("Lütfen kişisel verilerinizin yurt dışı Firebase sunucularına aktarılmasına ilişkin açık rıza kutucuğunu onaylayınız.");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
-      await signUpWithEmail(email, password, displayName.trim(), profession, cleanUsername);
+      const consentTimestamp = new Date().toISOString();
+      await signUpWithEmail(email, password, displayName.trim(), profession, cleanUsername, {
+        kvkkConsent: true,
+        consentGivenAt: consentTimestamp,
+      });
       router.push("/forum"); // Kayıt olan kullanıcıyı doğrudan foruma yönlendir
     } catch (err: any) {
       setError(translateFirebaseError(err.message || ""));
@@ -371,15 +391,179 @@ function AuthForm() {
             </div>
           </div>
 
+          {/* KVKK & GDPR Bağımsız Onay Kutucukları */}
+          <div
+            className="space-y-3 rounded-xl border border-white/10 bg-white/[0.03] p-3.5"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "12px",
+              padding: "14px",
+              borderRadius: "12px",
+              background: "rgba(255, 255, 255, 0.03)",
+              border: "1px solid rgba(224, 184, 120, 0.22)",
+              marginTop: "4px",
+            }}
+          >
+            {/* Checkbox A: Kullanıcı Sözleşmesi ve Aydınlatma Metni (Zorunlu) */}
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+              <input
+                id="reg-terms-consent"
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                style={{
+                  width: "18px",
+                  height: "18px",
+                  marginTop: "2px",
+                  accentColor: "#e0b878",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              />
+              <label
+                htmlFor="reg-terms-consent"
+                style={{
+                  fontSize: "12.5px",
+                  lineHeight: "1.45",
+                  color: "rgba(255, 255, 255, 0.88)",
+                  cursor: "pointer",
+                  margin: 0,
+                  fontWeight: 400,
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setKvkkModalSection("aydinlatma");
+                    setKvkkModalOpen(true);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    color: "#e0b878",
+                    fontWeight: 600,
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    fontSize: "inherit",
+                  }}
+                >
+                  Kullanıcı Sözleşmesi&apos;ni ve Aydınlatma Metni&apos;ni
+                </button>{" "}
+                okudum, anladım. <span style={{ color: "#e0b878", fontWeight: 600 }}>*</span>
+              </label>
+            </div>
+
+            {/* Checkbox B: Yurt Dışı Firebase Sunucularına Veri Aktarımı Açık Rıza (Varsayılan seçili DEĞİL) */}
+            <div style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
+              <input
+                id="reg-firebase-consent"
+                type="checkbox"
+                checked={firebaseConsentAccepted}
+                onChange={(e) => setFirebaseConsentAccepted(e.target.checked)}
+                style={{
+                  width: "18px",
+                  height: "18px",
+                  marginTop: "2px",
+                  accentColor: "#e0b878",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                }}
+              />
+              <label
+                htmlFor="reg-firebase-consent"
+                style={{
+                  fontSize: "12.5px",
+                  lineHeight: "1.45",
+                  color: "rgba(255, 255, 255, 0.88)",
+                  cursor: "pointer",
+                  margin: 0,
+                  fontWeight: 400,
+                }}
+              >
+                Kişisel verilerimin{" "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setKvkkModalSection("acik-riza");
+                    setKvkkModalOpen(true);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    color: "#e0b878",
+                    fontWeight: 600,
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    fontSize: "inherit",
+                  }}
+                >
+                  yurt dışı Firebase sunucularına aktarılmasına
+                </button>{" "}
+                açık rıza veriyorum. <span style={{ color: "#e0b878", fontWeight: 600 }}>*</span>
+              </label>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingTop: "6px",
+                borderTop: "1px solid rgba(255,255,255,0.07)",
+                fontSize: "11.5px",
+                color: "rgba(255,255,255,0.55)",
+              }}
+            >
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "5px" }}>
+                <ShieldCheck size={13} color="#e0b878" />
+                <span>KVKK &amp; GDPR Veri Koruma Güvencesi</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setKvkkModalSection("aydinlatma");
+                  setKvkkModalOpen(true);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  color: "#e0b878",
+                  fontSize: "11.5px",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                Metni Oku →
+              </button>
+            </div>
+          </div>
+
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !termsAccepted || !firebaseConsentAccepted}
             className="btn-primary-solid w-100 btn-auth-action"
+            style={{
+              opacity: loading || !termsAccepted || !firebaseConsentAccepted ? 0.55 : 1,
+              cursor: loading || !termsAccepted || !firebaseConsentAccepted ? "not-allowed" : "pointer",
+            }}
           >
             <span>{loading ? "Hesap oluşturuluyor..." : "Hesap Oluştur ve Katıl"}</span>
           </button>
         </form>
       )}
+
+      {/* KVKK ve Gizlilik Politikası Modalı */}
+      <KvkkPrivacyModal
+        isOpen={kvkkModalOpen}
+        onClose={() => setKvkkModalOpen(false)}
+        initialSection={kvkkModalSection}
+        onAcceptTerms={() => setTermsAccepted(true)}
+        onAcceptExplicitConsent={() => setFirebaseConsentAccepted(true)}
+      />
 
       {/* Ayırıcı */}
       <div className="auth-or-divider">

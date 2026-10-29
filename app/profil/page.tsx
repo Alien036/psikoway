@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import BackgroundVideo from "../../components/BackgroundVideo";
@@ -53,10 +53,13 @@ import {
   ArrowLeft,
   Sparkles,
   Compass,
-  Trash2
+  Trash2,
+  ShieldCheck,
+  X
 } from "lucide-react";
 
 function ProfileContentInner({ forcedId }: { forcedId?: string }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const queryId =
     forcedId ||
@@ -73,6 +76,7 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
     userProfile, 
     updateProfileData, 
     logout, 
+    deleteAccount,
     isRegisteredUser, 
     isAnonymousUser 
   } = useAuth();
@@ -105,6 +109,11 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
   const [activeTab, setActiveTab] = useState<"edit" | "posts" | "comments" | "preview">("edit");
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  // Hesap ve Veri Silme (Right to be Forgotten) Onay Modalı Durumları
+  const [deleteModalOpen, setDeleteModalOpen] = useState<boolean>(false);
+  const [deletingAccount, setDeletingAccount] = useState<boolean>(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Kendi İstatistik, Gönderi ve Yorumları
   const [myStats, setMyStats] = useState<UserStats>({ postsCount: 0, commentsCount: 0, likesReceived: 0 });
@@ -381,6 +390,31 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
       }).catch(() => {
         showToast("Bağlantı kopyalanamadı.");
       });
+    }
+  };
+
+  // KVKK & GDPR Unutulma Hakkı (Right to be Forgotten): Hesabı ve Tüm Verileri Kalıcı Olarak Sil
+  const handleConfirmDeleteAccount = async () => {
+    if (!user) return;
+    setDeletingAccount(true);
+    setDeleteError(null);
+    try {
+      await deleteAccount();
+      setDeleteModalOpen(false);
+      showToast("Hesabınız ve ilişkili tüm verileriniz kalıcı olarak silindi.");
+      router.push("/auth");
+    } catch (err: any) {
+      console.error("Delete account error:", err);
+      const msg = String(err?.message || "");
+      if (msg.includes("auth/requires-recent-login")) {
+        setDeleteError(
+          "Güvenlik gereği bu kritik işlem için oturumunuzu yenileyip (çıkış yapıp tekrar giriş yaparak) yeniden denemeniz gerekmektedir. Firestore üzerindeki kişisel verileriniz temizlenmiştir."
+        );
+      } else {
+        setDeleteError("Hesap silinirken bir hata oluştu: " + (msg || "Lütfen tekrar deneyin."));
+      }
+    } finally {
+      setDeletingAccount(false);
     }
   };
 
@@ -900,6 +934,28 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
                         <LogOut size={16} />
                         <span>Çıkış Yap</span>
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteError(null);
+                          setDeleteModalOpen(true);
+                        }}
+                        className="btn-danger-outline w-100"
+                        style={{
+                          display: "inline-flex",
+                          justifyContent: "center",
+                          alignItems: "center",
+                          gap: "8px",
+                          background: "rgba(239, 68, 68, 0.14)",
+                          borderColor: "rgba(239, 68, 68, 0.45)",
+                          color: "#fca5a5",
+                        }}
+                        title="KVKK ve GDPR Unutulma Hakkı kapsamında hesabınızı ve tüm verilerinizi kalıcı olarak silin"
+                      >
+                        <Trash2 size={15} />
+                        <span>Hesabımı ve Verilerimi Sil</span>
+                      </button>
                     </div>
                   </div>
 
@@ -1202,6 +1258,152 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
                             </button>
                           </div>
                         </form>
+
+                        {/* KVKK & GDPR Veri Koruma Özeti ve Tehlikeli Bölge (Hesap & Veri Silme) */}
+                        <div
+                          className="mt-8 pt-6 border-t border-white/10 space-y-4"
+                          style={{
+                            marginTop: "32px",
+                            paddingTop: "24px",
+                            borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "16px",
+                          }}
+                        >
+                          {/* KVKK Açık Rıza Durum Bilgisi */}
+                          <div
+                            className="rounded-xl border border-amber-400/25 bg-amber-500/5 p-4"
+                            style={{
+                              borderRadius: "14px",
+                              border: "1px solid rgba(224, 184, 120, 0.25)",
+                              background: "rgba(224, 184, 120, 0.06)",
+                              padding: "16px",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                flexWrap: "wrap",
+                                gap: "10px",
+                              }}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                <ShieldCheck size={18} color="#e0b878" />
+                                <div>
+                                  <strong style={{ display: "block", fontSize: "13.5px", color: "#ffffff" }}>
+                                    KVKK &amp; GDPR Veri Koruma ve Açık Rıza Durumu
+                                  </strong>
+                                  <span style={{ fontSize: "12px", color: "rgba(255, 255, 255, 0.7)" }}>
+                                    {userProfile?.kvkkConsent
+                                      ? `Açık rıza onaylandı (${
+                                          userProfile.consentGivenAt
+                                            ? new Date(userProfile.consentGivenAt).toLocaleString("tr-TR")
+                                            : "Kayıt esnasında"
+                                        })`
+                                      : "Temel profil verileriniz veri minimizasyonu ilkesiyle Google Firebase altyapısında korunmaktadır."}
+                                  </span>
+                                </div>
+                              </div>
+                              <Link
+                                href="/kvkk"
+                                style={{
+                                  fontSize: "12.5px",
+                                  color: "#e0b878",
+                                  fontWeight: 600,
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: "5px",
+                                }}
+                              >
+                                <span>Aydınlatma Metni &amp; Gizlilik Politikası</span>
+                                <ExternalLink size={13} />
+                              </Link>
+                            </div>
+                          </div>
+
+                          {/* Tehlikeli İşlem Uyarısı: Hesabımı ve Verilerimi Sil (Right to be Forgotten) */}
+                          <div
+                            className="rounded-xl border border-red-500/40 bg-red-500/10 p-5"
+                            style={{
+                              borderRadius: "16px",
+                              border: "1px solid rgba(239, 68, 68, 0.4)",
+                              background: "rgba(239, 68, 68, 0.08)",
+                              padding: "20px",
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+                              <div
+                                style={{
+                                  width: "38px",
+                                  height: "38px",
+                                  borderRadius: "10px",
+                                  background: "rgba(239, 68, 68, 0.18)",
+                                  border: "1px solid rgba(239, 68, 68, 0.35)",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  color: "#f87171",
+                                  flexShrink: 0,
+                                }}
+                              >
+                                <AlertTriangle size={20} />
+                              </div>
+
+                              <div style={{ flex: 1 }}>
+                                <h4
+                                  style={{
+                                    margin: "0 0 6px 0",
+                                    fontSize: "15px",
+                                    fontWeight: 700,
+                                    color: "#fca5a5",
+                                  }}
+                                >
+                                  Tehlikeli Bölge: Hesap ve Veri Silme (Unutulma Hakkı / Right to be Forgotten)
+                                </h4>
+                                <p
+                                  style={{
+                                    margin: "0 0 14px 0",
+                                    fontSize: "13px",
+                                    lineHeight: 1.6,
+                                    color: "rgba(255, 255, 255, 0.8)",
+                                  }}
+                                >
+                                  6698 sayılı KVKK ve GDPR kapsamında hesabınızı ve kişisel verilerinizi kalıcı olarak silebilirsiniz. Bu işlem{" "}
+                                  <strong>geri alınamaz</strong>; Cloud Firestore üzerindeki profiliniz, forum gönderileriniz, yorumlarınız, beğenileriniz ve Firebase Authentication hesabınız (<code>deleteUser()</code>) tamamen kaldırılır.
+                                </p>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setDeleteError(null);
+                                    setDeleteModalOpen(true);
+                                  }}
+                                  className="inline-flex items-center gap-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold px-4 py-2.5 text-sm transition"
+                                  style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: "8px",
+                                    background: "linear-gradient(135deg, #dc2626, #b91c1c)",
+                                    color: "#ffffff",
+                                    border: "1px solid rgba(248, 113, 113, 0.4)",
+                                    borderRadius: "10px",
+                                    padding: "10px 18px",
+                                    fontSize: "13.5px",
+                                    fontWeight: 600,
+                                    cursor: "pointer",
+                                    boxShadow: "0 6px 18px rgba(220, 38, 38, 0.3)",
+                                  }}
+                                >
+                                  <Trash2 size={16} />
+                                  <span>Hesabımı ve Verilerimi Sil</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
 
@@ -1386,6 +1588,167 @@ function ProfileContentInner({ forcedId }: { forcedId?: string }) {
 
         </div>
       </main>
+
+      {/* HESAP VE VERİ SİLME (RIGHT TO BE FORGOTTEN) ONAY POP-UP MODALI */}
+      {deleteModalOpen && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-down"
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "16px",
+            backgroundColor: "rgba(5, 7, 12, 0.85)",
+            backdropFilter: "blur(12px)",
+          }}
+          onClick={() => !deletingAccount && setDeleteModalOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-account-modal-title"
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-red-500/40 bg-[#141824] p-6 text-white shadow-2xl"
+            style={{
+              width: "100%",
+              maxWidth: "480px",
+              borderRadius: "20px",
+              border: "1px solid rgba(239, 68, 68, 0.45)",
+              background: "linear-gradient(165deg, rgba(24, 20, 30, 0.98), rgba(14, 15, 23, 0.98))",
+              padding: "26px",
+              boxShadow: "0 24px 60px rgba(0, 0, 0, 0.8)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div
+                  style={{
+                    width: "44px",
+                    height: "44px",
+                    borderRadius: "12px",
+                    background: "rgba(239, 68, 68, 0.2)",
+                    border: "1px solid rgba(239, 68, 68, 0.45)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#f87171",
+                  }}
+                >
+                  <AlertTriangle size={24} />
+                </div>
+                <div>
+                  <h3
+                    id="delete-account-modal-title"
+                    style={{ margin: 0, fontSize: "17px", fontWeight: 700, color: "#fca5a5" }}
+                  >
+                    Hesabınızı ve Verilerinizi Silmek Üzeresiniz
+                  </h3>
+                  <span style={{ fontSize: "12px", color: "rgba(255, 255, 255, 0.6)" }}>
+                    KVKK &amp; GDPR Unutulma Hakkı (Right to be Forgotten)
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={deletingAccount}
+                onClick={() => setDeleteModalOpen(false)}
+                aria-label="Kapat"
+                style={{
+                  background: "rgba(255, 255, 255, 0.06)",
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  borderRadius: "10px",
+                  color: "#cbd5e1",
+                  padding: "7px",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div
+              style={{
+                background: "rgba(239, 68, 68, 0.08)",
+                border: "1px solid rgba(239, 68, 68, 0.25)",
+                borderRadius: "12px",
+                padding: "14px",
+                marginBottom: "16px",
+                fontSize: "13px",
+                lineHeight: 1.6,
+                color: "rgba(255, 255, 255, 0.88)",
+              }}
+            >
+              <strong style={{ color: "#fca5a5", display: "block", marginBottom: "6px" }}>
+                ⚠️ Dikkat: Bu işlem kalıcıdır ve geri alınamaz!
+              </strong>
+              Onayladığınızda aşağıdaki işlemler derhal uygulanacaktır:
+              <ul style={{ paddingLeft: "18px", margin: "8px 0 0 0", display: "flex", flexDirection: "column", gap: "4px" }}>
+                <li>Cloud Firestore veritabanındaki kullanıcı profil dokümanınız silinir.</li>
+                <li>Forumda paylaştığınız tüm fikirler, yorumlar, analiz yorumları ve beğenileriniz kaldırılır.</li>
+                <li>Firebase Authentication üzerindeki oturumunuz ve hesabınız (<code>deleteUser()</code>) kalıcı olarak silinir.</li>
+              </ul>
+            </div>
+
+            {deleteError && (
+              <div
+                style={{
+                  background: "rgba(239, 68, 68, 0.16)",
+                  border: "1px solid rgba(239, 68, 68, 0.45)",
+                  borderRadius: "10px",
+                  padding: "10px 12px",
+                  marginBottom: "14px",
+                  fontSize: "12.5px",
+                  color: "#fecaca",
+                }}
+              >
+                {deleteError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "18px" }}>
+              <button
+                type="button"
+                disabled={deletingAccount}
+                onClick={() => setDeleteModalOpen(false)}
+                className="btn-white-outline"
+                style={{ padding: "10px 18px", fontSize: "13.5px", borderRadius: "10px" }}
+              >
+                Vazgeç
+              </button>
+
+              <button
+                type="button"
+                disabled={deletingAccount}
+                onClick={handleConfirmDeleteAccount}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  background: "linear-gradient(135deg, #dc2626, #991b1b)",
+                  color: "#ffffff",
+                  border: "1px solid rgba(248, 113, 113, 0.5)",
+                  borderRadius: "10px",
+                  padding: "10px 18px",
+                  fontSize: "13.5px",
+                  fontWeight: 700,
+                  cursor: deletingAccount ? "not-allowed" : "pointer",
+                  opacity: deletingAccount ? 0.65 : 1,
+                }}
+              >
+                <Trash2 size={15} />
+                <span>{deletingAccount ? "Siliniyor..." : "Evet, Hesabımı ve Verilerimi Sil"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>

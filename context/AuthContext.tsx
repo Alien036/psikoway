@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { 
   User, 
   onAuthStateChanged, 
@@ -9,12 +9,13 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
-  signOut 
+  signOut,
+  deleteUser
 } from "firebase/auth";
 import { doc, onSnapshot } from "firebase/firestore";
 import { auth, googleProvider, firestore } from "../lib/firebase";
 import { UserProfile } from "../types/user";
-import { getUserProfile, saveUserProfile, migrateAllUsersFromRTDBToFirestore, toUsernameSlug, isUsernameTaken } from "../lib/profile-data";
+import { getUserProfile, saveUserProfile, deleteUserAccountAndData, migrateAllUsersFromRTDBToFirestore, toUsernameSlug, isUsernameTaken } from "../lib/profile-data";
 import { isDisposableEmail } from "../lib/anti-spam";
 
 interface AuthContextType {
@@ -22,10 +23,18 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   signInWithEmail: (email: string, pass: string) => Promise<User | null>;
-  signUpWithEmail: (email: string, pass: string, displayName: string, profession?: string, username?: string) => Promise<User | null>;
+  signUpWithEmail: (
+    email: string,
+    pass: string,
+    displayName: string,
+    profession?: string,
+    username?: string,
+    consentData?: { kvkkConsent: boolean; consentGivenAt?: string }
+  ) => Promise<User | null>;
   signInWithGoogle: () => Promise<User | null>;
   signInGuest: () => Promise<User | null>;
   logout: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
   getUserDisplayName: () => string;
   updateProfileData: (data: Partial<UserProfile>) => Promise<UserProfile>;
   isRegisteredUser: boolean;
@@ -44,6 +53,7 @@ const AuthContext = createContext<AuthContextType>({
   signInWithGoogle: async () => null,
   signInGuest: async () => null,
   logout: async () => {},
+  deleteAccount: async () => {},
   getUserDisplayName: () => "Ziyaretçi",
   updateProfileData: async () => ({} as UserProfile),
   isRegisteredUser: false,
@@ -57,6 +67,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const isSigningUpRef = useRef<boolean>(false);
+  const unsubUserDocRef = useRef<(() => void) | null>(null);
 
   // Profil verisini yükle
   const loadProfile = async (firebaseUser: User | null) => {
@@ -110,21 +122,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
 
-    let unsubUserDoc: (() => void) | null = null;
-
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      await loadProfile(currentUser);
+      if (!isSigningUpRef.current) {
+        await loadProfile(currentUser);
+      }
       setLoading(false);
 
-      if (unsubUserDoc) {
-        unsubUserDoc();
-        unsubUserDoc = null;
+      if (unsubUserDocRef.current) {
+        unsubUserDocRef.current();
+        unsubUserDocRef.current = null;
       }
 
       if (currentUser) {
         try {
-          unsubUserDoc = onSnapshot(doc(firestore, "users", currentUser.uid), (snap) => {
+          unsubUserDocRef.current = onSnapshot(doc(firestore, "users", currentUser.uid), (snap) => {
             if (snap.exists()) {
               const data = snap.data() as UserProfile;
               setUserProfile((prev) => (prev ? { ...prev, ...data } : data));
@@ -140,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       unsubscribe();
-      if (unsubUserDoc) unsubUserDoc();
+      if (unsubUserDocRef.current) unsubUserDocRef.current();
     };
   }, []);
 
@@ -157,17 +169,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // 2. E-posta ile Kayıt Ol
+  // 2. E-posta ile Kayıt Ol (KVKK ve Yurt Dışı Veri Aktarımı Açık Rıza Kaydı ile)
   const signUpWithEmail = async (
     email: string, 
     pass: string, 
     displayName: string, 
     profession?: string,
-    username?: string
+    username?: string,
+    consentData?: { kvkkConsent: boolean; consentGivenAt?: string }
   ): Promise<User | null> => {
     const trimmedEmail = email.trim();
     if (isDisposableEmail(trimmedEmail)) {
       throw new Error("Geçici ve tek kullanımlık e-posta adresleri (temp-mail) ile kayıt olunamaz. Lütfen kalıcı ve geçerli bir e-posta adresi kullanın.");
+    }
+
+    if (consentData && !consentData.kvkkConsent) {
+      throw new Error("Kayıt işlemini tamamlamak için KVKK Aydınlatma Metni ve Yurt Dışı Veri Aktarımı Açık Rıza onaylarının verilmesi zorunludur.");
     }
 
     const cleanName = displayName.trim() || "PsikoWay Üyesi";
@@ -178,25 +195,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(`"@${cleanUsername}" kullanıcı adı zaten başka bir üye tarafından kullanılıyor. Lütfen farklı bir kullanıcı adı seçin.`);
     }
 
+    isSigningUpRef.current = true;
     try {
       const res = await createUserWithEmailAndPassword(auth, trimmedEmail, pass);
       
       // Firebase Auth Profilini Güncelle
       await updateProfile(res.user, { displayName: cleanName });
 
-      // Veritabanı profilini eksiksiz kaydet
+      const nowIso = new Date().toISOString();
+      const consentTimestamp = consentData?.consentGivenAt || nowIso;
+
+      // Veritabanı profilini eksiksiz ve veri minimizasyonuna uygun olarak kaydet
       const newProf: UserProfile = {
         uid: res.user.uid,
         username: cleanUsername,
-        email: email.trim(),
+        email: trimmedEmail,
         displayName: cleanName,
         photoURL: "",
         profession: profession?.trim() || "Düşünce Kaşifi",
         bio: "Kendini ve insan zihnini keşfetme yolculuğunda yeni bir düşünür.",
         instagram: "",
         youtube: "",
-        createdAt: new Date().toISOString(),
+        createdAt: nowIso,
         isAnonymous: false,
+        kvkkConsent: true,
+        consentGivenAt: consentTimestamp,
       };
       const saved = await saveUserProfile(newProf);
       setUserProfile(saved);
@@ -204,6 +227,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error("Email sign up error:", error);
       throw error;
+    } finally {
+      isSigningUpRef.current = false;
     }
   };
 
@@ -241,6 +266,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error("Sign out error:", error);
       throw error;
     }
+  };
+
+  // 6. Hesabımı ve Verilerimi Sil (KVKK & GDPR Unutulma Hakkı - Right to be Forgotten)
+  const deleteAccount = async (): Promise<void> => {
+    const currentUser = auth.currentUser || user;
+    if (!currentUser) {
+      throw new Error("Silinecek aktif bir kullanıcı oturumu bulunamadı.");
+    }
+
+    const targetUid = currentUser.uid;
+    const targetEmail = currentUser.email || userProfile?.email || "";
+    const targetUsername = userProfile?.username || "";
+
+    // Canlı profil dinleyicisini durdur
+    if (unsubUserDocRef.current) {
+      unsubUserDocRef.current();
+      unsubUserDocRef.current = null;
+    }
+
+    // 1. Firestore üzerindeki tüm ilişkili kullanıcı verilerini sil
+    await deleteUserAccountAndData(targetUid, targetEmail, targetUsername);
+
+    // 2. Firebase Authentication üzerindeki mevcut kullanıcı oturumunu ve hesabını kalıcı olarak sil
+    await deleteUser(currentUser);
+
+    setUser(null);
+    setUserProfile(null);
   };
 
   // Profil Güncelle
@@ -287,6 +339,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signInWithGoogle,
         signInGuest,
         logout,
+        deleteAccount,
         getUserDisplayName,
         updateProfileData,
         isRegisteredUser,

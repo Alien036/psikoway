@@ -205,11 +205,12 @@ export const recordSecurityAlert = async (alert: SecurityAlert): Promise<void> =
     localStorage.setItem(ALERTS_CACHE_KEY, JSON.stringify(list));
   } catch {}
 
-  // Cloud Firestore'a yaz (Admin paneli anında bildirim alsın)
+  // Cloud Firestore'a yaz (KVKK Veri Minimizasyonu: Cihaz parmak izi veritabanına kaydedilmez, yalnızca minimum gerekli alanlar saklanır)
   try {
     const alertRef = doc(firestore, ALERTS_COLLECTION, alert.id);
+    const { clientFingerprint: _ignoredFp, ...minimalAlert } = alert;
     await setDoc(alertRef, {
-      ...alert,
+      ...minimalAlert,
       createdAtServer: new Date(),
     });
   } catch (err) {

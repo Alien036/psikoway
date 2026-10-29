@@ -1,10 +1,49 @@
-import { doc, getDoc, setDoc, collection, getDocs, query, where } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, query, where, arrayRemove, increment } from "firebase/firestore";
 import { updateProfile } from "firebase/auth";
 import { firestore, auth } from "./firebase";
 import { UserProfile, UserStats } from "../types/user";
-import { getStoredPosts, getLocalShadowPosts } from "./forum-data";
+import { getStoredPosts, getLocalShadowPosts, saveStoredPosts, deleteLocalShadowPost } from "./forum-data";
 import { SEED_COMMUNITY_USERS } from "./community-stats";
 import { ForumPost } from "../types/forum";
+
+/**
+ * KVKK & GDPR Veri Minimizasyonu Yardımcıları:
+ * - Metin alanlarında yanlışlıkla paylaşılabilecek şifresiz 11 haneli T.C. Kimlik Numarası kalıplarını maskeler.
+ * - Gereksiz cihaz bilgisi, IP adresi, konum veya aşırı kişisel veri alanlarını temizler ve
+ *   yalnızca minimum gerekli alanları (`uid` ve temel profil bilgileri) korur.
+ */
+export const maskTcKimlikInText = (text?: string): string => {
+  if (!text) return "";
+  return text.replace(/\b[1-9][0-9]{10}\b/g, "[TC-KIMLIK-GIZLENDI]");
+};
+
+export const sanitizeUserProfileForMinimization = (profile: UserProfile): UserProfile => {
+  const resolvedDisplayName = maskTcKimlikInText((profile.displayName || "PsikoWay Üyesi").trim());
+  const resolvedUsername = toUsernameSlug(profile.username || resolvedDisplayName);
+
+  const sanitized: UserProfile = {
+    uid: profile.uid,
+    username: resolvedUsername,
+    email: (profile.email || "").trim(),
+    displayName: resolvedDisplayName,
+    photoURL: profile.photoURL || "",
+    profession: maskTcKimlikInText((profile.profession || "Düşünce Kaşifi").trim()),
+    bio: maskTcKimlikInText((profile.bio || "").trim()),
+    instagram: (profile.instagram || "").trim(),
+    youtube: (profile.youtube || "").trim(),
+    createdAt: profile.createdAt || new Date().toISOString(),
+    isAnonymous: Boolean(profile.isAnonymous),
+    kvkkConsent: Boolean(profile.kvkkConsent),
+    consentGivenAt: profile.consentGivenAt || "",
+    isBanned: Boolean(profile.isBanned),
+    banReason: profile.banReason || "",
+    bannedAt: profile.bannedAt || "",
+    bannedBy: profile.bannedBy || "",
+    role: profile.role || "",
+  };
+
+  return sanitized;
+};
 
 /**
  * Kullanıcı adını veya görünen ismi URL-dostu temiz bir kullanıcı adı slug'ına dönüştürür.
@@ -388,28 +427,9 @@ export const getUserProfile = async (identifier: string): Promise<UserProfile | 
 export const saveUserProfile = async (profile: UserProfile): Promise<UserProfile> => {
   if (!profile.uid) throw new Error("Kullanıcı ID'si eksik.");
 
-  const resolvedDisplayName = (profile.displayName || "PsikoWay Üyesi").trim();
-  const resolvedUsername = toUsernameSlug(profile.username || resolvedDisplayName);
-
-  // Firestore "undefined" alanları kabul etmez. Tüm alanları eksiksiz ve geçerli tiplerle hazırlarız:
-  const cleanProfile: UserProfile = {
-    uid: profile.uid,
-    username: resolvedUsername,
-    email: (profile.email || "").trim(),
-    displayName: resolvedDisplayName,
-    photoURL: profile.photoURL || "",
-    profession: (profile.profession || "Düşünce Kaşifi").trim(),
-    bio: (profile.bio || "").trim(),
-    instagram: (profile.instagram || "").trim(),
-    youtube: (profile.youtube || "").trim(),
-    createdAt: profile.createdAt || new Date().toISOString(),
-    isAnonymous: Boolean(profile.isAnonymous),
-    isBanned: Boolean(profile.isBanned),
-    banReason: profile.banReason || "",
-    bannedAt: profile.bannedAt || "",
-    bannedBy: profile.bannedBy || "",
-    role: profile.role || "",
-  };
+  // Veri Minimizasyonu ve KVKK/GDPR alan doğrulaması:
+  // Yalnızca izin verilen minimum alanlar (`uid`, temel profil bilgileri ve açık rıza durumu/zaman damgası) tutulur.
+  const cleanProfile = sanitizeUserProfileForMinimization(profile);
 
   // 1. Firebase Auth Profilini Güncelle (displayName & photoURL)
   if (auth.currentUser && auth.currentUser.uid === profile.uid) {
@@ -423,13 +443,37 @@ export const saveUserProfile = async (profile: UserProfile): Promise<UserProfile
     }
   }
 
-  // 2. Cloud Firestore'a eksiksiz kaydet
+  // 2. Cloud Firestore'a eksiksiz kaydet (kvkkConsent ve consentGivenAt dahil)
   try {
     const userDocRef = doc(firestore, "users", profile.uid);
-    await setDoc(userDocRef, {
-      ...cleanProfile,
+    const firestorePayload: Record<string, any> = {
+      uid: cleanProfile.uid,
+      username: cleanProfile.username,
+      email: cleanProfile.email,
+      displayName: cleanProfile.displayName,
+      photoURL: cleanProfile.photoURL || "",
+      profession: cleanProfile.profession || "Düşünce Kaşifi",
+      bio: cleanProfile.bio || "",
+      instagram: cleanProfile.instagram || "",
+      youtube: cleanProfile.youtube || "",
+      createdAt: cleanProfile.createdAt,
+      isAnonymous: Boolean(cleanProfile.isAnonymous),
+      isBanned: Boolean(cleanProfile.isBanned),
+      banReason: cleanProfile.banReason || "",
+      bannedAt: cleanProfile.bannedAt || "",
+      bannedBy: cleanProfile.bannedBy || "",
+      role: cleanProfile.role || "",
       updatedAt: new Date().toISOString(),
-    }, { merge: true });
+    };
+
+    if (profile.kvkkConsent !== undefined) {
+      firestorePayload.kvkkConsent = Boolean(profile.kvkkConsent);
+    }
+    if (profile.consentGivenAt) {
+      firestorePayload.consentGivenAt = profile.consentGivenAt;
+    }
+
+    await setDoc(userDocRef, firestorePayload, { merge: true });
     console.log(`[Firestore] Kullanıcı başarıyla kaydedildi: ${cleanProfile.displayName} (@${cleanProfile.username})`);
   } catch (err) {
     console.error("Firestore profile save error:", err);
@@ -445,6 +489,174 @@ export const saveUserProfile = async (profile: UserProfile): Promise<UserProfile
   }
 
   return cleanProfile;
+};
+
+/**
+ * KVKK Madde 7/11 & GDPR Madde 17 - Unutulma Hakkı (Right to be Forgotten):
+ * Kullanıcının Cloud Firestore'daki profil dokümanını ve ilişkili tüm kayıtlarını
+ * (forum gönderileri, yorumlar, beğeniler, analiz yorumları/beğenileri, iletişim mesajları, uyarılar)
+ * ve yerel önbellek verilerini kalıcı olarak siler.
+ */
+export const deleteUserAccountAndData = async (
+  uid: string,
+  email?: string,
+  username?: string
+): Promise<void> => {
+  if (!uid) throw new Error("Silinecek kullanıcı kimliği (uid) bulunamadı.");
+
+  // 1. Kullanıcı profil dokümanını sil (users/{uid})
+  try {
+    await deleteDoc(doc(firestore, "users", uid));
+  } catch (err) {
+    console.warn("deleteUserAccountAndData users doc delete warning:", err);
+  }
+
+  // 2. Forum gönderilerini, yorumlarını ve beğenilerini temizle (forum_posts)
+  try {
+    const postsCol = collection(firestore, "forum_posts");
+    const postsSnap = await getDocs(postsCol);
+
+    for (const postDoc of postsSnap.docs) {
+      const postData = postDoc.data();
+      // a) Kullanıcının kendi açtığı gönderileri tamamen sil
+      if (postData?.authorId === uid) {
+        try {
+          await deleteDoc(doc(firestore, "forum_posts", postDoc.id));
+          deleteLocalShadowPost(postDoc.id);
+        } catch (e) {
+          console.warn("deleteUserAccountAndData post delete warning:", e);
+        }
+        continue;
+      }
+
+      // b) Diğer gönderilerdeki kullanıcının yorumlarını ve beğenilerini kaldır
+      const currentLikes: string[] = Array.isArray(postData?.likes) ? postData.likes : [];
+      const currentComments: any[] = Array.isArray(postData?.comments) ? postData.comments : [];
+
+      const hasLikedPost = currentLikes.includes(uid);
+      const hasUserCommentOrLike = currentComments.some(
+        (c) => c?.authorId === uid || (Array.isArray(c?.likes) && c.likes.includes(uid))
+      );
+
+      if (hasLikedPost || hasUserCommentOrLike) {
+        const updatedLikes = currentLikes.filter((id) => id !== uid);
+        const updatedComments = currentComments
+          .filter((c) => c?.authorId !== uid)
+          .map((c) => ({
+            ...c,
+            likes: Array.isArray(c?.likes) ? c.likes.filter((id: string) => id !== uid) : [],
+          }));
+
+        try {
+          await updateDoc(doc(firestore, "forum_posts", postDoc.id), {
+            likes: updatedLikes,
+            comments: updatedComments,
+          });
+        } catch (e) {
+          console.warn("deleteUserAccountAndData post comments/likes cleanup warning:", e);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("deleteUserAccountAndData forum_posts cleanup warning:", err);
+  }
+
+  // 3. Karakter ve dizi analizi yorumlarını sil (analysis_comments)
+  try {
+    const analysisCommentsCol = collection(firestore, "analysis_comments");
+    const qComments = query(analysisCommentsCol, where("authorId", "==", uid));
+    const snapComments = await getDocs(qComments);
+    for (const cDoc of snapComments.docs) {
+      await deleteDoc(doc(firestore, "analysis_comments", cDoc.id));
+    }
+  } catch (err) {
+    console.warn("deleteUserAccountAndData analysis_comments cleanup warning:", err);
+  }
+
+  // 4. Karakter ve dizi analizi beğenilerini temizle (analysis_likes)
+  try {
+    const analysisLikesCol = collection(firestore, "analysis_likes");
+    const qLikes = query(analysisLikesCol, where("likedUsers", "array-contains", uid));
+    const snapLikes = await getDocs(qLikes);
+    for (const lDoc of snapLikes.docs) {
+      await updateDoc(doc(firestore, "analysis_likes", lDoc.id), {
+        likedUsers: arrayRemove(uid),
+        likeCount: increment(-1),
+      });
+    }
+  } catch (err) {
+    console.warn("deleteUserAccountAndData analysis_likes cleanup warning:", err);
+  }
+
+  // 5. İletişim mesajları varsa temizle (contact_messages)
+  if (email && email.trim()) {
+    try {
+      const contactCol = collection(firestore, "contact_messages");
+      const qContact = query(contactCol, where("email", "==", email.trim()));
+      const snapContact = await getDocs(qContact);
+      for (const mDoc of snapContact.docs) {
+        await deleteDoc(doc(firestore, "contact_messages", mDoc.id));
+      }
+    } catch (err) {
+      console.warn("deleteUserAccountAndData contact_messages cleanup warning:", err);
+    }
+  }
+
+  // 6. Moderasyon ve güvenlik kayıtlarını temizle (moderation_alerts, banned_users, moderation/warnings)
+  try {
+    const alertsCol = collection(firestore, "moderation_alerts");
+    const qAlerts = query(alertsCol, where("userId", "==", uid));
+    const snapAlerts = await getDocs(qAlerts);
+    for (const aDoc of snapAlerts.docs) {
+      await deleteDoc(doc(firestore, "moderation_alerts", aDoc.id));
+    }
+  } catch (err) {
+    console.warn("deleteUserAccountAndData moderation_alerts cleanup warning:", err);
+  }
+
+  try {
+    await deleteDoc(doc(firestore, "banned_users", uid));
+  } catch {}
+
+  try {
+    const warnDocRef = doc(firestore, "moderation", "warnings");
+    const warnSnap = await getDoc(warnDocRef);
+    if (warnSnap.exists()) {
+      const list = Array.isArray(warnSnap.data()?.list) ? warnSnap.data().list : [];
+      const filtered = list.filter((w: any) => w?.userId !== uid);
+      if (filtered.length !== list.length) {
+        await setDoc(warnDocRef, { list: filtered }, { merge: true });
+      }
+    }
+  } catch {}
+
+  // 7. Tarayıcı yerel depolama (LocalStorage) üzerindeki kullanıcı izlerini temizle
+  if (typeof window !== "undefined") {
+    try {
+      const currentStoredPosts = getStoredPosts();
+      const cleanedLocalPosts = currentStoredPosts
+        .filter((p) => p.authorId !== uid)
+        .map((p) => ({
+          ...p,
+          likes: (p.likes || []).filter((id) => id !== uid),
+          comments: (p.comments || [])
+            .filter((c) => c.authorId !== uid)
+            .map((c) => ({
+              ...c,
+              likes: (c.likes || []).filter((id) => id !== uid),
+            })),
+        }));
+      saveStoredPosts(cleanedLocalPosts);
+
+      localStorage.removeItem(`${PROFILE_CACHE_PREFIX}${uid}`);
+      if (username) {
+        localStorage.removeItem(`${PROFILE_CACHE_PREFIX}${toUsernameSlug(username)}`);
+      }
+      localStorage.removeItem("psikoway_visitor_id");
+      localStorage.removeItem("psikoway_client_fingerprint_v1");
+      localStorage.removeItem("psikoway_write_timestamps_v1");
+    } catch {}
+  }
 };
 
 /**
